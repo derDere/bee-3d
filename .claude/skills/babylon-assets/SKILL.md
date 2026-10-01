@@ -1,6 +1,6 @@
 ---
 name: babylon-assets
-description: Assets für Babylon.js-Browserspiele beschaffen, prüfen und einbinden — freie Quellen mit geprüfter Lizenz (Poly Haven, ambientCG, Kenney, Quaternius, Freesound), Poly-Haven-API, Lizenznachweis in docs/assets.md, Ordnerstruktur unter public/, glTF-Pipeline mit gltf-transform (meshopt, KTX2, LODs), selbst gehostete Decoder, HDRI zu .env, prozedurale Alternativen (Node Materials, Partikel-Graphen, ZzFX) und kostenpflichtige Generatoren nur nach Freigabe. Laden, wenn Modelle, Texturen, HDRIs, Sounds oder Musik gesucht, geladen, optimiert oder lizenzrechtlich geprüft werden.
+description: Assets für Babylon.js-Browserspiele beschaffen, prüfen und einbinden — freie Quellen mit geprüfter Lizenz (Poly Haven, ambientCG, Kenney, Quaternius, Freesound), Poly-Haven-API, Lizenznachweis in docs/assets.md, Ordnerstruktur unter public/, glTF-Pipeline mit gltf-transform (meshopt, KTX2, LODs), selbst gehostete Decoder, HDRI zu .env, prozedurale Alternativen (Node Materials, Partikel-Graphen, ZzFX), eigene Modelle über den Skill babylon-modeling, kostenpflichtige Dienste nur nach Freigabe. Laden, wenn Modelle, Texturen, HDRIs, Sounds oder Musik gesucht, geladen, optimiert oder lizenzrechtlich geprüft werden.
 ---
 
 # Assets beschaffen und einbinden
@@ -10,9 +10,10 @@ description: Assets für Babylon.js-Browserspiele beschaffen, prüfen und einbin
 - **Lizenz vor Einbau.** CC0 bevorzugt. CC-BY nur mit Nennung in den Credits. Lizenzen mit
   NC-Klausel (nicht kommerziell) und unklare Lizenzen werden nicht verwendet.
 - **Nachweis:** Jedes fremde Asset bekommt vor dem Einbau einen Eintrag in `docs/assets.md`.
-- **Kostenpflichtige Dienste** (KI-Generatoren, Audio-Generatoren, Kaufassets) nur nach
-  ausdrücklicher Freigabe durch den User — Kosten und kommerzielle Nutzungsrechte hängen am
-  jeweiligen Tarif.
+- **3D-Modelle entstehen lokal:** aus freien Quellen oder mit eigenen Generatoren (Skill
+  `babylon-modeling`). Cloud-Generatoren und DCC-Programme wie Blender kommen nicht zum Einsatz.
+- **Kostenpflichtige Dienste** (Audio-Generatoren, Kaufassets) nur nach ausdrücklicher Freigabe
+  durch den User — Kosten und kommerzielle Nutzungsrechte hängen am jeweiligen Tarif.
 - **Downloads während der Entwicklung**, ausgeliefert wird aus `public/`. Das Spiel ruft zur
   Laufzeit keine Asset-APIs Dritter auf.
 
@@ -156,11 +157,13 @@ KTX2 landet dann unkomprimiert im Speicher (Skill `babylon-game-dev`).
 - Maßstab 1 Einheit = 1 Meter, Y oben; Pivot sinnvoll (Füße/Wurzel).
 - Benannte Knoten für alles, was der Code ansteuert (Flügel, Sockel, Andockpunkte).
 - Materialien PBR (Metallic-Roughness); keine eingebetteten Riesentexturen.
-- Optik im Spiel prüfen (Skill `babylon-visual-qa`). Für viele Assets lohnt ein Asset-Prüfstand
-  (Dev-Ansicht mit neutralem Licht und vier Kameras) — Umfang mit dem User abstimmen.
+- Form, Maße und Technik im Model Lab prüfen (Kontaktbogen aus sechs Ansichten, Skill
+  `babylon-modeling`), die Wirkung im Spiellicht mit Skill `babylon-visual-qa`.
 
 ## Prozedurale Alternativen
 
+- **Eigene Modelle:** Python-Generatoren erzeugen fertige glb mit Texturen — Skill
+  `babylon-modeling`.
 - **Node Materials** über das MCP `babylon-nme`: Graph bauen, validieren, als JSON exportieren
   und mit dem Spiel ausliefern (`NodeMaterial.Parse` bzw. `ParseFromFileAsync`).
   `save_snippet` veröffentlicht auf dem öffentlichen Snippet-Server — nur nach Freigabe.
@@ -170,12 +173,8 @@ KTX2 landet dann unkomprimiert im Speicher (Skill `babylon-game-dev`).
   Lizenzfragen.
 - **Prozedurale Texturen:** `@babylonjs/procedural-textures`, Rauschtexturen.
 
-## Kostenpflichtige und externe Generatoren (nur nach Freigabe)
+## Kostenpflichtige Dienste (nur nach Freigabe)
 
 | Werkzeug | Zweck | Lizenz der Ergebnisse |
 |---|---|---|
-| Meshy (offizielles MCP `@meshy-ai/meshy-mcp-server`) | Text/Bild → 3D, Remesh, Rig, Animation | Gratis-Tarif: CC BY 4.0; bezahlt: Nutzer besitzt das Ergebnis |
-| Tripo (`tripo-cli`) | Text → GLB | Gratis: nicht kommerziell; bezahlt: kommerziell |
 | ElevenLabs (offizielles MCP) | Soundeffekte, Musik | kommerzielle Lizenz ab bezahltem Tarif |
-| Blender-MCP (Community) | Modellieren, Rigging, Export, Poly-Haven-Import | Werkzeug; führt beliebigen Python-Code in Blender aus, Telemetrie abschalten (`DISABLE_TELEMETRY=true`) |
-| Hunyuan3D | — | Lizenz schließt EU, UK und Südkorea aus → nicht nutzbar |

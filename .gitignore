@@ -1,0 +1,7 @@
+# Python-Werkzeuge (Modell-Pipeline)
+.venv/
+__pycache__/
+.ruff_cache/
+
+# Rohdaten und Zwischenstände
+.temp/

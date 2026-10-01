@@ -80,13 +80,20 @@ Assets (`.glb`, `.env`, `.ktx2`, `.hdr`) liegen unter `public/` und werden über
     "typecheck": "tsc",
     "build": "tsc && vite build",
     "build:profile": "tsc && vite build --mode profile",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "models": "uv run --project tools/models tools/models/build_all.py"
   }
 }
 ```
 
-`tsc` prüft nur (die Vorlage setzt `noEmit`). Der Profil-Build ist ein Produktions-Build mit
-Debug-API für Messungen (Skill `babylon-performance`):
+- `models` erzeugt alle eigenen Modelle neu (Generatoren → Validierung → Optimierung) und
+  schreibt die fertigen glb nach `public/assets/models/`; sie werden eingecheckt. `build` ruft
+  kein Python auf und kopiert die fertigen Dateien mit `public/` ins Artefakt — Generator-Code und
+  Model Lab (`lab.html`, `src/lab/`) gehören nicht dazu (Skill `babylon-modeling`).
+- `tsc` prüft nur (die Vorlage setzt `noEmit`).
+
+Der Profil-Build ist ein Produktions-Build mit Debug-API für Messungen (Skill
+`babylon-performance`):
 
 ```
 # .env.profile — Produktions-Build mit aktivierter Debug-API für Leistungsmessungen

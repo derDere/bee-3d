@@ -200,6 +200,8 @@ export function buildGrassTile(blade: Mesh, ground: GroundMesh, x0: number, z0: 
 }
 ```
 
+- `blade` (Halm, Blume) stammt aus einem fertigen glb (Skill `babylon-modeling`); zur Laufzeit
+  entstehen nur die Platzierungsmatrizen.
 - Culling gilt je Mesh — deshalb Kacheln. Pufferarten: `"matrix"`, `"previousMatrix"`,
   `"color"` (→ `instanceColor`, multipliziert Albedo und Alpha); eigene über
   `thinInstanceRegisterAttribute`.
@@ -219,7 +221,7 @@ export function buildGrassTile(blade: Mesh, ground: GroundMesh, x0: number, z0: 
 - LOD: `addLODLevel(distanceOrCoverage, mesh | null)`; mit `useLODScreenCoverage` Werte 0..1
   (größer = detaillierter). Eingebaute Impostors gibt es nicht — letzte Stufe als Quad mit
   `billboardMode = Mesh.BILLBOARDMODE_Y`.
-- LOD-Meshes offline erzeugen (Skill `babylon-assets`); glTF `MSFT_lod` steuert progressives
+- LOD-Meshes offline erzeugen (Skills `babylon-modeling` und `babylon-assets`); glTF `MSFT_lod` steuert progressives
   Laden, kein Distanz-Umschalten.
 
 ## Gelände

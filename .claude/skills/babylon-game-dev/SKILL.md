@@ -1,6 +1,6 @@
 ---
 name: babylon-game-dev
-description: Grundlagen und Einstieg für 3D-Browserspiele mit Babylon.js 9.x (TypeScript, Vite, ES-Module) — Stack, API-Verifikation gegen die installierten Typings, Paketversionen, Projektstruktur, Engine-Bootstrap mit WebGPU und WebGL2-Rückfallebene, Side-Effect-Imports, Debug-API und Arbeitsablauf. Wegweiser zu den Spezial-Skills für Grafik, Gameplay, Performance, visuelle Prüfung und Assets. Laden, sobald ein Babylon.js-Spiel oder eine Babylon-Szene geplant, aufgesetzt oder weiterentwickelt wird.
+description: Grundlagen und Einstieg für 3D-Browserspiele mit Babylon.js 9.x (TypeScript, Vite, ES-Module) — Stack, API-Verifikation gegen die installierten Typings, Paketversionen, Projektstruktur, Engine-Bootstrap mit WebGPU und WebGL2-Rückfallebene, Side-Effect-Imports, Debug-API und Arbeitsablauf. Wegweiser zu den Spezial-Skills für Grafik, Gameplay, Performance, visuelle Prüfung, Assets und Modellierung. Laden, sobald ein Babylon.js-Spiel oder eine Babylon-Szene geplant, aufgesetzt oder weiterentwickelt wird.
 ---
 
 # Babylon.js-Browserspiele — Grundlagen
@@ -65,7 +65,8 @@ fallen erst zur Laufzeit auf — dafür die Dev-Diagnose aus dem Abschnitt unten
 ## Projektstruktur
 
 ```
-index.html · vite.config.ts · tsconfig.json · package.json · .env.profile
+index.html · lab.html (Model Lab, nur Dev) · vite.config.ts · tsconfig.json · package.json · .env.profile
+tools/models/  Modell-Generatoren (Python, uv), nicht im Build → Skill babylon-modeling
 public/
   assets/      models/ textures/ env/ audio/      → Skill babylon-assets
   babylon/     selbst gehostete Decoder (Draco, meshopt, KTX2)
@@ -78,6 +79,7 @@ src/
   systems/     Input, Kamera, Physik, Audio, HUD, Spielzustand
   assets/      Asset-Katalog und Ladefunktionen
   debug/       Debug-API und Inspector-Anbindung (Dev- und Profil-Build)
+  lab/         Model Lab (Kontaktbogen für Modelle)
 docs/assets.md Herkunft und Lizenz jedes Assets
 ```
 
@@ -95,6 +97,10 @@ Projekt passen.
   oder Union-Typen, Felder werden explizit deklariert. Babylons eigene Enums sind normal nutzbar.
 - Bezeichner Englisch, Kommentare Deutsch; Doc-Comments nennen den deutschen Fachbegriff
   („Stellt die Spielfigur dar.").
+- **Modelle sind fertige Dateien:** Jedes Modell liegt als glb mit PBR-Materialien und
+  Texturen unter `public/assets/models/`. Das Spiel lädt, platziert und instanziiert sie; es
+  erzeugt keine Modellgeometrie zur Laufzeit. Generator-Code (`tools/models/`) und das Model Lab
+  sind Werkzeuge und gehören nicht ins Build-Artefakt.
 - Einheiten: 1 Einheit = 1 Meter, Y zeigt nach oben, Zeiten in Sekunden.
 - Zufall über einen seedbaren Generator, damit Prüfläufe reproduzierbar sind.
 
@@ -171,7 +177,8 @@ Vertrag und Umsetzung: [references/debug-api.md](references/debug-api.md).
 3. **Look-Dev-Ausschnitt** — eine repräsentative Ansicht mit vollem Licht-Stack
    (`babylon-graphics`), geprüft durch `babylon-visual-reviewer`, dann zeigen.
 4. **Gameplay-Kern** — `babylon-gameplay`.
-5. **Inhalte und Assets** — `babylon-assets`.
+5. **Inhalte und Assets** — eigene Modelle mit `babylon-modeling`, fremde Assets mit
+   `babylon-assets`.
 6. **Performance-Durchgang** — `babylon-perf-profiler` auf Zielhardware.
 7. **Feinschliff** — Optik, Gefühl, Ton.
 
@@ -184,6 +191,8 @@ Jeder Schritt endet mit einem Stand, den der User im Browser ansehen kann.
 | MCP `chrome-devtools` | Spiel im Browser öffnen, Screenshots, Konsole, Performance-Trace | `.mcp.json` (headless, eigenes Profil je Sitzung, 1280×720) |
 | MCP `babylon-nme` | Node Materials bauen, validieren, als JSON exportieren | `.mcp.json` (offizielle Babylon-MCP-Server) |
 | MCP `babylon-npe` | Partikel-Graphen bauen, validieren, exportieren | `.mcp.json` |
+| `tools/models/` (Python, uv) | Modell-Generatoren → fertige glb mit Texturen (Werkzeug, nicht im Build) | Skill `babylon-modeling` |
+| Model Lab `lab.html` | Modelle als Kontaktbogen aus sechs Ansichten prüfen | Skill `babylon-modeling` |
 | MCP `context7` | Babylon-Doku (`/websites/doc_babylonjs`) | Benutzer-Scope |
 | Inspector-CLI `npx babylon-inspector` | laufende Szene abfragen (JSON), Frame-Statistiken, Off-Screen-Screenshots | devDependency `@babylonjs/inspector` |
 | `npx gltf-transform` | Modelle prüfen und optimieren | devDependency `@gltf-transform/cli` |
@@ -201,4 +210,5 @@ Snippet-Server — nur nach Freigabe; ausgeliefert wird exportiertes JSON.
 | Messen und Optimieren | Skill `babylon-performance`, Agent `babylon-perf-profiler` |
 | Im Browser ansehen und bewerten | Skill `babylon-visual-qa`, Agent `babylon-visual-reviewer` |
 | Modelle, Texturen, HDRIs, Audio, Lizenzen, glTF-Pipeline | Skill `babylon-assets` |
+| Eigene 3D-Modelle per Code erzeugen und prüfen | Skill `babylon-modeling`, Agent `babylon-model-reviewer` |
 | Babylon-API nachschlagen und verifizieren | Agent `babylon-api-verifier` |
