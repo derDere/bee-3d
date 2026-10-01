@@ -54,7 +54,7 @@ Nicht verwenden: das PyPI-Paket `sdf` (Scientific Data Format, nicht fogleman/sd
 |---|---|
 | `sdf.py` | `Sdf` (Basis: `distance`, `bounds`, `gradient`, `gradient_normals`, `project_to_surface` mit Newton-Schritt d·∇d/\|∇d\|²), `Ellipsoid`, `TaperedCapsule`, `TubeChain`, `RoundedBox`, `smooth_min`, `SmoothUnion`, `SmoothSubtraction`, `Aabb` — Konvention negativ innen, Meter, Punkte `(N, 3)` |
 | `noise.py` | `Fractal` (fBm/ridged, Oktaven gedreht, `min_wavelength` schneidet Oktaven ab), `Cellular` → `CellularSample` (F1, F2, Zellwerte, `edge`, `blended_value`), `DomainWarp`, `hash01` — numba-Kernel, seedbar |
-| `sweep.py` | `sweep_tube` (Röhre mit Parallel-Transport-Rahmen, Spitze, kachelnde UVs, Tangenten), `sweep_ribbon` (gewölbtes Band), `transport_frames`, `SweptMesh` |
+| `sweep.py` | `sweep_tube` (Röhre mit Parallel-Transport-Rahmen, Spitze, kachelnde UVs, Tangenten), `sweep_closed_tube` (geschlossene Röhre um eine geschlossene Linie: Ringe, Wülste, Lippen), `sweep_ribbon` (gewölbtes Band), `catmull_rom` (glatte Kurve durch Stützpunkte), `transport_frames`, `SweptMesh` |
 | `tiling.py` | `periodic_noise` (FFT-Spektralrauschen, nahtlos kachelnd, dehnbar), `height_to_normal`, `encode_normal`, `encode_linear` |
 | `sdf_asset.py` | `bake_sdf_asset` (grobes Feld vernetzen, abwickeln, Detailnormalen aus dem feinen Feld, AO), `detail_normals` (Tetraeder-Gradient), `stopwatch` |
 | `meshing.py` | `sample_grid` (blockweise, RAM-begrenzt), `mesh_from_sdf` (Marching Cubes), `edge_length_for_budget`, `remesh_isotropic`, `decimate_quadric`, `remesh_to_budget` |
@@ -62,8 +62,8 @@ Nicht verwenden: das PyPI-Paket `sdf` (Scientific Data Format, nicht fogleman/sd
 | `uv.py` | `UvOptions(resolution, padding=4, texels_per_unit=0.0)`, `UnwrappedMesh` (`take`, `tangents` nach glTF, `mirrored_x`), `unwrap(mesh, options)` — UVs in [0, 1], v nach unten wie in glTF |
 | `shading.py` | `srgb_to_linear`, `linear_to_srgb`, `smoothstep`, `solid_color`, `banded_color`, `SurfaceZone(region, color, roughness, metallic)`, `SurfaceSample`, `evaluate_zones`, `bake_ambient_occlusion` |
 | `baking.py` | `rasterize_uv(mesh, resolution) → TexelMap` (je Texel Dreieck, Baryzentrik, Weltposition, Normale; `coverage`, `interpolate`), `scatter_with_dilation`, `bake_occlusion` (AO auf gröberem Raster, bilinear hochgerechnet), `bake_base_color` (→ sRGB, optional Alpha), `bake_orm`, `bake_normal_map` (Tangentenraum nach glTF), `bake_channels` |
-| `transforms.py` | `rotation_matrix`, `axis_angle_quaternions` (glTF-Reihenfolge xyzw) |
-| `gltf_writer.py` | `MaterialSpec` (Faktoren, Textur-Slots baseColor/metallicRoughness/occlusion/normal, Alpha-Modus mit `alpha_cutoff`), `PrimitiveData` (`uvs`, `tangents`, `colors` optional), `RotationTrack`, `InstanceSet`, `GltfBuilder` (`add_texture` mit `wrap="clamp"`/`"repeat"`, `add_material`, `add_mesh`, `add_node` mit `scale` und `extras`, `add_instanced_node` → `EXT_mesh_gpu_instancing`, `import_glb_mesh` übernimmt ein Mesh samt Materialien und Texturen aus einem fertigen glb, `add_rotation_animation`, `write_glb`) |
+| `transforms.py` | `rotation_matrix`, `axis_angle_quaternions` (glTF-Reihenfolge xyzw), `quaternion_from_matrix` |
+| `gltf_writer.py` | `MaterialSpec` (Faktoren, Textur-Slots baseColor/metallicRoughness/occlusion/normal, Alpha-Modus mit `alpha_cutoff`; Leuchten über `emissive`, `emissive_texture`, `emissive_strength`; Sheen mit Farbe und Textur, Schillerschicht, diffuse Transmission als KHR-Erweiterungen), `PrimitiveData` (`uvs`, `tangents`, `colors`, `targets` mit `MorphTarget`, `variants` optional), `RotationTrack`, `InstanceSet`, `GltfBuilder` (`add_texture` mit `wrap="clamp"`/`"repeat"`, `add_material`, `add_material_variants` → `KHR_materials_variants`, `add_mesh` schreibt Formziele mit Namen in `extras.targetNames`, `add_node` mit `scale` und `extras`, `add_instanced_node` → `EXT_mesh_gpu_instancing`, `import_glb_mesh` übernimmt ein Mesh samt Materialien und Texturen aus einem fertigen glb, `add_rotation_animation`, `write_glb`) |
 
 Weitere Bausteine (SDF-Primitive, L-System) kommen als Klassen bzw. Funktionen in das passende
 Modul, mit Type Hints und deutschen Docstrings. Inseln und ihre Teile: Skill `babylon-islands`.
@@ -135,7 +135,8 @@ erhalten. Ablauf je Roh-glb:
 
 1. `npx gltf-transform validate` — bricht bei Fehlern oder Warnungen ab.
 2. `npx gltf-transform optimize <roh> public/assets/models/<name>.glb --texture-compress webp
-   --compress meshopt --flatten false --join false --instance false --palette false --simplify false`.
+   --compress meshopt --flatten false --join false --instance false --palette false --simplify false
+   --prune false`.
 
 `npx` wird über `shutil.which` gefunden, Arbeitsverzeichnis ist der Repo-Root. Aufruf:
 `npm run models` bzw. `uv run --project tools/models tools/models/build_all.py`.
@@ -200,3 +201,13 @@ Dutzend (parallele Berechnung in den Bibliotheken) — Tests prüfen Kennzahlen 
     ansteuert (Texturen verschieben, Farbe wechseln), brauchen unterschiedliche Werte.
 13. **Profiler- und Probeausgaben** (`cProfile`, Testbilder) in den Scratchpad bzw. `.temp/`
     schreiben, nie in den Repo-Root.
+14. **Quantisierung verschiebt Pivots:** `--compress meshopt` quantisiert und legt die
+    Rückrechnung (Skalierung, Versatz) in den Knoten, der das Mesh trägt. Bewegliche Knoten
+    tragen deshalb kein Mesh; das Mesh hängt am Kindknoten `<Name>_Mesh`, das Spiel dreht den
+    Pivotknoten (getestet an der Spielfigur Biene).
+15. **Leere Ankerknoten** (Strahlursprung, Lebensbalken, Anbaupunkte) entfernt `optimize` beim
+    Aufräumen; `--prune false` hält sie (die Generatoren schreiben keine unbenutzten Daten).
+16. **Materialvarianten in Babylon:** `SelectVariant` setzt nur die Primitiven, die für die
+    gewählte Variante eingetragen sind. `add_material_variants` gibt deshalb jeder Primitive für
+    jede Variante eine Zuordnung, sonst bleibt nach einem Wechsel das Material der vorigen
+    Variante stehen.

@@ -92,6 +92,7 @@ Kontaktbogen. Zahlenfragen (Maße, Dreiecke, Ursprung, Texturgrößen) beantwort
 | Flügel, Blüten- und Laubblätter | offene Membran- bzw. Ribbon-Netze, RGBA-Textur, doppelseitiges Material |
 | Bäume, Sträucher | L-System oder Space Colonization → Röhren + Blattkarten |
 | Varianten (Blumen, Steine) | mehrere Varianten per Seed im Generator, je Variante ein glb oder ein Knoten |
+| Zustände (Leuchten, Geist, Laser), Mundformen | Materialvarianten mit Leuchtmasken, Formziele, geschlossene Hülle für Durchsichtigkeit → [references/techniques.md](references/techniques.md) |
 | Schwebende Inseln und ihre Teile (Bäume, Gras, Blumen, Felsen, Wasserfall) | Skill `babylon-islands` |
 | Gelände, Gras und Wasser im Spiel (Shader, Thin-Instance-Felder) | Skill `babylon-graphics` |
 
@@ -152,7 +153,9 @@ Protokoll, `window.__lab`-API und Lesehilfe für die Debug-Ansichten:
   — Muster bleiben dadurch unabhängig von der Netzdichte scharf und überstehen Decimation.
 - Validieren vor dem Komprimieren (der Validator prüft meshopt-komprimierte Dateien nicht).
 - `gltf-transform optimize` mit `--flatten false --join false --instance false --palette false
-  --simplify false`, sonst gehen Knoten, Pivots und Materialien verloren.
+  --simplify false --prune false`, sonst gehen Knoten, Anker, Pivots und Materialien verloren;
+  bewegliche Knoten tragen ihr Mesh am Kindknoten `<Name>_Mesh` (Quantisierung verschiebt sonst
+  den Pivot).
 - Dünne Teile nicht ins SDF-Raster, sondern als Hüllen-Röhren.
 - Die Normalen-Ansicht färbt nach Weltrichtung — gekippte Teile sind zu Recht anders gefärbt;
   Befund sind abrupte Sprünge auf glatten Flächen.

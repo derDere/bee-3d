@@ -90,7 +90,9 @@ Einstellen am Kontaktbogen.
 ## Struktur und Animation
 
 - **Knoten:** Wurzelknoten mit dem Modellnamen, darunter Teile mit eigener Bewegung. Die
-  Knotenposition (`translation`) ist der Pivot; die Geometrie liegt lokal ab dem Ursprung.
+  Knotenposition (`translation`) ist der Pivot; die Geometrie liegt lokal ab dem Ursprung. Der
+  Pivotknoten trägt kein Mesh — das Mesh hängt am Kindknoten `<Name>_Mesh`, damit die
+  Quantisierung beim Optimieren den Pivot nicht verschiebt (getestet, Biene).
 - **Keyframes** über `GltfBuilder.add_rotation_animation`: Beispiel `WingFlap` — Rotation um +Z,
   12° + 48°·sin(2πt/T), T = 0,125 s, 9 Keys mit erstem = letztem Key für die nahtlose Schleife,
   rechte Seite mit negiertem Winkel (getestet). Für Translation und Skalierung den Builder um
@@ -101,6 +103,42 @@ Einstellen am Kontaktbogen.
 - **Skinning** ist per Code machbar: Gelenke als Knoten, inverse Bind-Matrizen,
   `JOINTS_0`/`WEIGHTS_0` aus Distanzen zu den Knochensegmenten (höchstens 4 Gewichte, Summe 1);
   pygltflib kann `Skin` schreiben. Für starre Teile ist Knotenanimation billiger.
+
+## Zustände, Leuchten und Durchsichtigkeit
+
+Erprobt an der Spielfigur Biene (`tools/models/bee.py`, Zustände Tag, Nacht, Geist, Laser).
+
+- **Zustände als Materialvarianten** (`KHR_materials_variants`, `add_material_variants`): je
+  Zustand ein Material je Primitive; Babylon schaltet mit
+  `KHR_materials_variants.SelectVariant(root, "Ghost")`. Leuchtende Stellen als Emissive-Textur
+  mit eingebackenen Farben je Variante (Nacht: Bänder limettengelb, Laser: Kanten rot) und
+  `emissive_strength` 1,5–3 für Bloom; so kommt ein Körper mit einem Material für alle
+  Leuchtflächen aus.
+- **Formwechsel als Formziele** (`MorphTarget`): Mundformen teilen ein Raster (Längs- und
+  Querparameter), Ränder laufen an den Enden in einem Punkt zusammen; ein Wulst ohne Dicke in der
+  Grundform erscheint nur im Ziel. Babylon benennt die Ziele aus `mesh.extras.targetNames`.
+- **Durchscheinende Formen** (Geist, Glas): der Körper ist eine einzige geschlossene Hülle
+  (SDF-Vereinigung, Glieder per Boolean) — überlappende Einzelkörper zeigen sich als
+  Kugelkonturen im Inneren. Bewegliche Teile durchdringen die Hülle nicht: Glieder an der Hülle
+  beschneiden (`Gliedvolumen − Körpervolumen`), Augäpfel mit 0,5 mm Luft in ausgesparte
+  Augenhöhlen setzen.
+- **Aufgemalte Pupillen** auf drehbaren Augäpfeln (polare UVs um die Blickrichtung, nahtlos):
+  Blick und Laserblick drehen den Augenknoten, Varianten tauschen nur die Textur.
+
+## Comic-Gesichter ohne Uncanny Valley
+
+Unheimlich wirkt vor allem ein Stilbruch innerhalb des Gesichts — realistische Augen auf
+stilisierter Form — und ein starrer, verschatteter Blick (Quellen: animatorisland.com/?p=2919,
+cordis.europa.eu/article/id/444372).
+
+- Einheitlicher Stilisierungsgrad im Gesicht: gemalte Pupillen mit fester dunkler Mitte,
+  warmem Irisring und zwei festen Glanzlichtern; Augenweiß satiniert (Rauheit ~0,25), leicht
+  warm.
+- Augen groß und rund, weich eingebettet, Pupillen leicht nach oben und zur Gesichtsmitte —
+  freundlich. Nach vorn gekippte Oberlider, breite Lidstriche und Verschattung um die Augen lassen
+  das Gesicht böse wirken (getestet).
+- Im Gesicht nur schwache eingebackene Verdeckung und kurzer Pelz; Realismus (Pelz, Glanz,
+  Anatomie) gehört an Körper und Glieder.
 
 ## LOD
 
