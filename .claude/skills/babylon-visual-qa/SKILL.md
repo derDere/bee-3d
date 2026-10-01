@@ -10,6 +10,8 @@ description: Ein Babylon.js-Spiel im Browser ansehen und die Optik bewerten — 
 - **Hauptagent:** startet den Server, beauftragt `babylon-visual-reviewer` mit Prüfauftrag und
   URL, setzt den Bericht um. Screenshots bleiben so außerhalb des Hauptkontexts.
 - **Direkt im Hauptkontext** nur für eine schnelle Einzelprüfung (ein Screenshot, eine Zahl).
+- **Himmel und Wetter** (Tageszeiten, Wolken, Nebel, Strahlen, Wetter, Flug durch Wolken) prüft
+  Agent `babylon-sky-reviewer` nach dem Protokoll des Skills `babylon-sky`.
 - Review und Performance-Messung laufen **nacheinander**, nie gleichzeitig im selben Browser.
 
 ## Server starten

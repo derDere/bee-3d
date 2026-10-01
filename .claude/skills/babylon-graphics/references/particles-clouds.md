@@ -56,6 +56,10 @@ pollen.start();
 
 ## Wolken
 
+Das vollständige Wolkensystem der Himmelswelt (ein Medium für Wolken, Wolkenmeer und Nebel;
+Pass-Reihenfolge; Beleuchtung; Stufen) beschreibt Skill `babylon-sky`, Datei
+`references/clouds.md`. Dieser Abschnitt hält die Bausteine und das API-Gerüst.
+
 **Nichts eingebaut.** Optionen nach Aufwand:
 
 | Ansatz | Bewertung |
@@ -124,6 +128,9 @@ clouds.onApply = (effect) => {
 };
 ```
 
+- **Komposition:** Als Kamera-Post-Process liegen die Wolken über Wasser, Partikeln und Regen, die
+  keine Tiefe schreiben. Skill `babylon-sky` komponiert die Wolken deshalb direkt nach
+  Rendering-Gruppe 0, nach dem Himmels-Composite der Atmosphäre.
 - **Tiefe:** `storeCameraSpaceZ` schreibt die Kamera-Z in Metern, 0 für den Himmel. Der
   linear-normalisierte Modus versagt mit `maxZ = 0`.
 - **Kamera-Uniforms:** `camera.globalPosition`, Basisvektoren und FOV übergeben (robust über GL und

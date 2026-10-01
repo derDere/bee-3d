@@ -86,9 +86,10 @@ Startwerte — per Messung justieren (Skill `babylon-performance`):
 | Kantenglättung | FXAA | MSAA 2 | MSAA 4 | MSAA 4 |
 | Gras- und Blumendichte | 25 % | 50 % | 100 % | 100 %, größere Sichtweite |
 | Partikel | 25 % | 50 % | 100 % | 100 % |
-| Wolken | Himmelstextur/Billboards | Raymarch halbe Auflösung, 32 Schritte | halbe Auflösung, 64 Schritte | zeitlich akkumuliert, 96 Schritte |
+| Wolken | Mesh- oder Sprite-Wolken + 2D-Schichten | Raymarch ¼ Auflösung, zeitlich wiederverwendet | fern ½, nah ¼ Auflösung | wie `high` + Lichtvolumen (WebGPU) |
 
-Unter WebGL2 höchstens `medium` als Startwert.
+Unter WebGL2 höchstens `medium` als Startwert. Mit Volumenwolken gelten für Wolken, Nebel und
+Lichtstrahlen die Stufen des Skills `babylon-sky`.
 
 ## Fallstricke
 
@@ -122,14 +123,19 @@ Unter WebGL2 höchstens `medium` als Startwert.
     Typings eher der Fehlersuche.
 14. **Bloom-Schwelle** ist hart (kein Soft Knee): Mit HDR und Schwelle ≥ 1,0 blühen nur echte
     Highlights.
+15. **VLS sieht nur Meshes:** Mit geraymarchten Wolken scheinen die Strahlen durch die Wolken
+    hindurch — dann Radial-Blur mit Wolkenmaske (Skill `babylon-sky`).
 
 ## Nebel, Dunst, Wolken — Kurzfassung
 
 - **Dunst:** physikalisch über die Atmosphäre (`physicalProperties.mieScatteringScale`,
   `aerialPerspectiveIntensity`); eingebauten Höhennebel oder volumetrischen Nebel gibt es nicht.
 - **Wolken:** nichts eingebaut. Prototyp mit Himmelstextur oder geschichteten Billboards; für
-  `medium`+ ein eigener Raymarch-Post-Process (halbe Auflösung, zeitliche Akkumulation) —
-  Gerüst in [references/particles-clouds.md](references/particles-clouds.md).
+  `medium`+ ein eigener Raymarch-Pass (halbe Auflösung, zeitliche Akkumulation) — Gerüst in
+  [references/particles-clouds.md](references/particles-clouds.md).
+- **Himmelswelt komplett** — ein Medium für Wolken, Wolkenmeer und Nebel, Komposition nach
+  Rendering-Gruppe 0, Tag-Nacht-Zyklus mit Mond, Strahlen, Wetter, Fluggefühl: Skill
+  `babylon-sky`.
 
 ## Materialien und Natur — Kurzfassung
 

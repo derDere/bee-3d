@@ -127,6 +127,9 @@ export interface GameDebugApi {
 | `showInspector()` | Öffnet Inspector v2 als Overlay. |
 | `startInspectable()` | Verbindet die Szene mit der Inspector-CLI (Skill `babylon-visual-qa`). |
 
+Spiele mit Himmel und Wetter ergänzen `window.__game.sky` (`listWeathers`, `setWeather`,
+`setTimeScale`, `skyState`) — Vertrag im Skill `babylon-sky`, Abschnitt „Debug API extension".
+
 ## Umsetzungsskizze
 
 Das Spiel implementiert `DebugHost` (spielspezifische Operationen); `DebugBridge` ergänzt die

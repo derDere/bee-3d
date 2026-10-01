@@ -212,4 +212,5 @@ Snippet-Server — nur nach Freigabe; ausgeliefert wird exportiertes JSON.
 | Modelle, Texturen, HDRIs, Audio, Lizenzen, glTF-Pipeline | Skill `babylon-assets` |
 | Eigene 3D-Modelle per Code erzeugen und prüfen | Skill `babylon-modeling`, Agent `babylon-model-reviewer` |
 | Schwebende Inseln und ihre Teile (Bäume, Gras, Blumen, Felsen, Wasserfall) | Skill `babylon-islands` |
+| Himmelswelt: Tag-Nacht-Zyklus mit Mond und Sternen, Volumenwolken und Wolkenmeer, Nebel, Sonnen- und Mondstrahlen, Wetter und Regen, Flug durch Wolken | Skill `babylon-sky`, Agent `babylon-sky-reviewer` |
 | Babylon-API nachschlagen und verifizieren | Agent `babylon-api-verifier` |
