@@ -172,3 +172,36 @@ def bake_orm(
     """Backt die ORM-Textur (R = Occlusion, G = Roughness, B = Metallic, linear)."""
     channels = np.stack([occlusion, roughness, metallic], axis=1)
     return _to_bytes(scatter_with_dilation(texels, channels))
+
+
+def bake_normal_map(texels: TexelMap, tangents: FloatArray, detail_normals: FloatArray) -> ByteImage:
+    """Backt eine Tangentenraum-Normal-Map (glTF: +X = +u, +Y = Richtung v = 0, +Z = Normale).
+
+    ``tangents`` sind die Eckpunkt-Tangenten des Netzes (V, 4) wie in ``TANGENT``,
+    ``detail_normals`` die Ziel-Normalen je Texel (N, 3) in Weltkoordinaten — etwa der
+    Gradient des vollständigen Distanzfeldes, dessen feine Oktaven das Netz nicht trägt.
+    Die Basis je Texel entsteht wie im Shader: interpolierte Normale und Tangente,
+    Bitangente = cross(N, T) · w.
+    """
+    normal = texels.normals
+    tangent = texels.interpolate(tangents[:, :3])
+    tangent -= normal * np.einsum("ij,ij->i", tangent, normal)[:, None]
+    tangent /= np.maximum(np.linalg.norm(tangent, axis=1, keepdims=True), 1e-12)
+    handedness = np.sign(texels.interpolate(tangents[:, 3:4]))[:, 0]
+    bitangent = np.cross(normal, tangent) * np.where(handedness == 0.0, 1.0, handedness)[:, None]
+    local = np.stack(
+        [
+            np.einsum("ij,ij->i", detail_normals, tangent),
+            np.einsum("ij,ij->i", detail_normals, bitangent),
+            np.einsum("ij,ij->i", detail_normals, normal),
+        ],
+        axis=1,
+    )
+    local[:, 2] = np.maximum(local[:, 2], 0.05)
+    local /= np.linalg.norm(local, axis=1, keepdims=True)
+    return _to_bytes(scatter_with_dilation(texels, local * 0.5 + 0.5))
+
+
+def bake_channels(texels: TexelMap, values: FloatArray) -> ByteImage:
+    """Kodiert beliebige lineare Kanalwerte (N, C) in 0..1 als 8-Bit-Bild mit Dilatation."""
+    return _to_bytes(scatter_with_dilation(texels, values))

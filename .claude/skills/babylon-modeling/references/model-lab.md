@@ -42,6 +42,7 @@ mit `preserveDrawingBuffer` unter WebGL2 — ein Renderpixel entspricht einem Sc
 | `debug` | `none`, `wireframe`, `normals`, `uv`, `vertexcolors`, `materialid` |
 | `anim`, `t` | Animationsname (ohne Angabe: alle) und Zeitpunkt in Sekunden; die Pose wird vor dem Vermessen gesetzt |
 | `focus`, `focusSize` | Fokuspunkt `x,y,z` und Kantenlänge des Ausschnitts in Metern für `close-up` |
+| `focusDir` | Blickrichtung `x,y,z` der Nahaufnahme (vom Fokuspunkt zur Kamera); Standard ist vorne rechts oben |
 
 ## Bildaufbau
 
@@ -87,7 +88,9 @@ Abschnitt „Browser" (eigene Seite, am Ende schließen).
 4. Kontaktbogen: `take_screenshot` mit `format: "jpeg"`, `quality: 80`.
 5. Bei Bedarf `await window.__lab.setDebug("wireframe")` → Screenshot (Dreiecksverteilung),
    `setDebug("normals")` → Screenshot, danach `setDebug("none")`.
-6. Details: `navigate_page` auf dieselbe URL mit `&view=close-up&focus=x,y,z&focusSize=s`.
+6. Details: `navigate_page` auf dieselbe URL mit `&view=close-up&focus=x,y,z&focusSize=s`;
+   liegt die Stelle hinten oder seitlich, `&focusDir=x,y,z` von außen setzen — sonst blickt die
+   Kamera durch das Modell.
 7. Animierte Teile: zweite Pose über `&anim=<name>&t=<s>` (z. B. oberer und unterer
    Umkehrpunkt).
 8. `close_page`.

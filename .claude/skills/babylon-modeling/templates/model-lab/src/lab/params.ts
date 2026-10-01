@@ -15,6 +15,8 @@ export interface LabParams {
   focus: [number, number, number] | null;
   /** Optionale Kantenlänge des Nahaufnahme-Ausschnitts in Metern. */
   focusSize: number | null;
+  /** Optionale Blickrichtung der Nahaufnahme: Richtung vom Fokuspunkt zur Kamera. */
+  focusDirection: [number, number, number] | null;
 }
 
 function pick<T extends string>(value: string | null, allowed: readonly T[], fallback: T): T {
@@ -33,7 +35,7 @@ function parseVec3(value: string | null): [number, number, number] | null {
   return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
 }
 
-/** Liest ?model, ?backend, ?view, ?debug, ?anim, ?t, ?focus, ?focusSize. */
+/** Liest ?model, ?backend, ?view, ?debug, ?anim, ?t, ?focus, ?focusSize, ?focusDir. */
 export function readParams(search: string): LabParams {
   const query = new URLSearchParams(search);
   return {
@@ -45,5 +47,6 @@ export function readParams(search: string): LabParams {
     animationTime: parseNumber(query.get("t")) ?? 0,
     focus: parseVec3(query.get("focus")),
     focusSize: parseNumber(query.get("focusSize")),
+    focusDirection: parseVec3(query.get("focusDir")),
   };
 }

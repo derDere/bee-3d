@@ -211,4 +211,5 @@ Snippet-Server — nur nach Freigabe; ausgeliefert wird exportiertes JSON.
 | Im Browser ansehen und bewerten | Skill `babylon-visual-qa`, Agent `babylon-visual-reviewer` |
 | Modelle, Texturen, HDRIs, Audio, Lizenzen, glTF-Pipeline | Skill `babylon-assets` |
 | Eigene 3D-Modelle per Code erzeugen und prüfen | Skill `babylon-modeling`, Agent `babylon-model-reviewer` |
+| Schwebende Inseln und ihre Teile (Bäume, Gras, Blumen, Felsen, Wasserfall) | Skill `babylon-islands` |
 | Babylon-API nachschlagen und verifizieren | Agent `babylon-api-verifier` |

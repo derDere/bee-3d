@@ -47,7 +47,7 @@ description: Eigene 3D-Modelle für Babylon.js-Spiele lokal erzeugen und als fer
 ## Einrichtung (einmal je Projekt, nach dem Grundgerüst des Spiels)
 
 1. `templates/tools-models/` nach `tools/models/` kopieren, `uv lock --upgrade --project tools/models`
-   und `uv sync --project tools/models` (lädt Python 3.13 und rund 140 MB Pakete).
+   und `uv sync --project tools/models` (lädt Python 3.13 und rund 180 MB Pakete).
 2. `templates/model-lab/lab.html` in den Repo-Root, `templates/model-lab/src/lab/` nach `src/lab/`.
 3. `package.json`: Skript `"models": "uv run --project tools/models tools/models/build_all.py"`
    (Skill `babylon-game-dev`, `references/setup.md`).
@@ -92,7 +92,8 @@ Kontaktbogen. Zahlenfragen (Maße, Dreiecke, Ursprung, Texturgrößen) beantwort
 | Flügel, Blüten- und Laubblätter | offene Membran- bzw. Ribbon-Netze, RGBA-Textur, doppelseitiges Material |
 | Bäume, Sträucher | L-System oder Space Colonization → Röhren + Blattkarten |
 | Varianten (Blumen, Steine) | mehrere Varianten per Seed im Generator, je Variante ein glb oder ein Knoten |
-| Gelände, Gras, Wasser | Skill `babylon-graphics` |
+| Schwebende Inseln und ihre Teile (Bäume, Gras, Blumen, Felsen, Wasserfall) | Skill `babylon-islands` |
+| Gelände, Gras und Wasser im Spiel (Shader, Thin-Instance-Felder) | Skill `babylon-graphics` |
 
 Parameter und Rezepte: [references/techniques.md](references/techniques.md).
 
@@ -139,6 +140,7 @@ Nahaufnahme, dazu Kopfzeile mit Bounding Box, Rasterweite und Dreiecken.
 | `debug=<modus>` | `wireframe`, `normals`, `uv`, `vertexcolors`, `materialid` |
 | `anim=<name>&t=<s>` | Pose einer Animation |
 | `focus=x,y,z&focusSize=<m>` | Ausschnitt der Nahaufnahme |
+| `focusDir=x,y,z` | Blickrichtung der Nahaufnahme (vom Fokus zur Kamera), z. B. für Rückseiten großer Modelle |
 | `backend=webgl2` | Gegenprobe |
 
 Protokoll, `window.__lab`-API und Lesehilfe für die Debug-Ansichten:
@@ -165,4 +167,5 @@ Protokoll, `window.__lab`-API und Lesehilfe für die Debug-Ansichten:
 | Model Lab: Einrichtung, Aufruf, API, Prüfprotokoll | [references/model-lab.md](references/model-lab.md) |
 | Lokale KI-Modelle (Referenzbilder, Blockouts) | [references/local-ai.md](references/local-ai.md) |
 | Fremd-Assets, Lizenzen, Decoder, Texturkompression | Skill `babylon-assets` |
+| Schwebende Inseln, Bäume, Gras, Blumen, Felsbrocken, Wasserfall | Skill `babylon-islands` |
 | Modell im Spiel: Licht, Materialien, Wind | Skill `babylon-graphics` |

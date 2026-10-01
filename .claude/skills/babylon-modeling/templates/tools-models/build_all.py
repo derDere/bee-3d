@@ -1,7 +1,9 @@
 """Baut alle Modelle: Generatoren → Roh-glb → Validierung → optimiertes Auslieferungs-glb.
 
 Die Roh-glbs landen in ``.temp/models/``, die Auslieferungsdateien in ``public/assets/models/``
-(jeweils relativ zum Repo-Root). Der Python-Code gehört nicht zum Build-Artefakt des Spiels.
+(jeweils relativ zum Repo-Root); Unterordner bleiben erhalten (``flora/``, ``islands/``).
+Die Reihenfolge in ``GENERATORS`` zählt: Generatoren, die fertige Teile anderer Generatoren
+einbauen, stehen nach diesen. Der Python-Code gehört nicht zum Build-Artefakt des Spiels.
 """
 
 from __future__ import annotations
@@ -82,7 +84,7 @@ def main() -> int:
     for generator in GENERATORS:
         for raw_path in generator.build(RAW_DIR):
             validate(raw_path)
-            final_path = FINAL_DIR / raw_path.name
+            final_path = FINAL_DIR / raw_path.relative_to(RAW_DIR)
             optimize(raw_path, final_path)
             print(
                 f"{raw_path.name}: roh {raw_path.stat().st_size / 1024:.1f} KiB -> "

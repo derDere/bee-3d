@@ -48,20 +48,30 @@ class Sdf(ABC):
     def __call__(self, points: FloatArray) -> FloatArray:
         return self.distance(points)
 
-    def gradient_normals(self, points: FloatArray, epsilon: float = 1e-5) -> FloatArray:
-        """Berechnet Einheitsnormalen über zentrale Differenzen des Feldes."""
+    def gradient(self, points: FloatArray, epsilon: float = 1e-5) -> FloatArray:
+        """Gradient des Feldes (N, 3) über zentrale Differenzen."""
         offsets = np.eye(3) * epsilon
-        gradient = np.stack(
+        return np.stack(
             [self.distance(points + offset) - self.distance(points - offset) for offset in offsets],
             axis=1,
-        )
+        ) / (2.0 * epsilon)
+
+    def gradient_normals(self, points: FloatArray, epsilon: float = 1e-5) -> FloatArray:
+        """Berechnet Einheitsnormalen über zentrale Differenzen des Feldes."""
+        gradient = self.gradient(points, epsilon)
         return gradient / np.maximum(np.linalg.norm(gradient, axis=1, keepdims=True), 1e-12)
 
     def project_to_surface(self, points: FloatArray, iterations: int = 3) -> FloatArray:
-        """Schiebt Punkte per Newton-Schritten exakt auf die Nullfläche des Feldes."""
+        """Schiebt Punkte per Newton-Schritten (d · ∇d / |∇d|²) auf die Nullfläche des Feldes.
+
+        Für exakte Distanzfelder ist |∇d| = 1; Felder mit Verschiebungen (Rauschen, Schichten)
+        haben steilere Gradienten und konvergieren mit dieser Schrittweite trotzdem.
+        """
         projected = points.copy()
         for _ in range(iterations):
-            projected -= self.distance(projected)[:, None] * self.gradient_normals(projected)
+            gradient = self.gradient(projected)
+            squared = np.maximum((gradient * gradient).sum(axis=1, keepdims=True), 1e-12)
+            projected -= self.distance(projected)[:, None] * gradient / squared
         return projected
 
 

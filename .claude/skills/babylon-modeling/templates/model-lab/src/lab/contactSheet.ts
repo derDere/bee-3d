@@ -18,6 +18,8 @@ const COLUMNS = 3;
 export interface FocusOptions {
   point: [number, number, number] | null;
   size: number | null;
+  /** Richtung vom Fokuspunkt zur Kamera; null = Standardrichtung der Nahaufnahme. */
+  direction: [number, number, number] | null;
 }
 
 /** Kontaktbogen: mehrere Kamera-Viewports in einem Bild, mit Beschriftung. */
@@ -121,7 +123,10 @@ export class ContactSheet {
     return { points: boxCorners(focusPoint.subtract(halfVector), focusPoint.add(halfVector)), center: focusPoint };
   }
 
-  private createCamera(spec: ViewSpec, rect: PixelRect): FreeCamera {
+  private createCamera(baseSpec: ViewSpec, rect: PixelRect): FreeCamera {
+    const spec = baseSpec.detail && this.focus.direction
+      ? { ...baseSpec, direction: new Vector3(...this.focus.direction).normalize() }
+      : baseSpec;
     const { points, center } = this.framingPoints(spec);
     const placement = fitCamera(spec, points, center, rect.width / rect.height);
     const camera = new FreeCamera(`lab-cam-${spec.id}`, placement.position, this.scene);

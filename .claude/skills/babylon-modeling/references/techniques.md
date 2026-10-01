@@ -78,9 +78,14 @@ Einstellen am Kontaktbogen.
   512²) — `BeeModel.eye_surface` und `wing_surface` sind die Muster (getestet).
 - **Transparenz:** RGBA-Basisfarbtextur, Alpha linear (Membran 0,18–0,5, Adern 0,9), `BLEND`,
   doppelseitig; Rauheit als Faktor, wenn sie über die Fläche konstant ist.
-- **Normal-Maps** lohnen, wenn das Netz deutlich gröber als die Form ist (LOD, Hard-Surface mit
-  Fasen): Tangentenraum-Normale aus dem SDF-Gradienten gegenüber der Netznormale backen und
-  `TANGENT` mitschreiben. Als Baustein in `modelkit.baking` ergänzen, wenn ein Modell es braucht.
+- **Normal-Maps** lohnen, wenn das Netz deutlich gröber als die Form ist (Felsen, Gelände, LOD,
+  Hard-Surface mit Fasen): Netz aus dem groben Feld (`Fractal(..., min_wavelength=2 × Kante)`),
+  Detailnormalen aus dem feinen Feld (`sdf_asset.detail_normals`, Schrittweite ½ Texel),
+  `bake_normal_map(texels, mesh.tangents(), normals)` und `TANGENT` mitschreiben —
+  `bake_sdf_asset` bündelt den Ablauf (getestet an Inselkörper und Felsbrocken, Skill
+  `babylon-islands`).
+- **Kachelnde Texturen** (Rinde, Wasser, Schleier): `modelkit.tiling.periodic_noise` kachelt
+  nahtlos, `add_texture(..., wrap="repeat")`; UVs in Kacheln je Meter.
 
 ## Struktur und Animation
 

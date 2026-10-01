@@ -14,7 +14,7 @@ aus `public/assets/models/`; `npm run build` ruft kein Python auf.
    das Paket `modelkit/`, den Beispielgenerator `bee.py` und `build_all.py`).
 2. Abhängigkeiten auf den neuesten Stand bringen und installieren:
    `uv lock --upgrade --project tools/models`, dann `uv sync --project tools/models`. uv lädt
-   Python 3.13 und rund 140 MB Pakete; danach startet ein Generator in wenigen Sekunden.
+   Python 3.13 und rund 180 MB Pakete; danach startet ein Generator in wenigen Sekunden.
 3. `.gitignore`: `.venv/`, `__pycache__/` (entsteht beim ersten Generatorlauf in
    `tools/models/` und `modelkit/`), `.ruff_cache/` und `.temp/`. `tools/models/uv.lock` wird
    eingecheckt (reproduzierbare Builds).
@@ -43,6 +43,7 @@ Versionen live prüfen; Mindestversionen stehen in `pyproject.toml`.
 | `pygltflib` | glb schreiben: Knoten, Materialien, Texturen, Animation, Skin | gekapselt in `GltfBuilder` |
 | `pillow` | PNG-Kodierung der Texturen | — |
 | `numpy` | vektorisierte Felder, Texel, AO | — |
+| `numba` | parallel kompilierte Rauschkernel (`modelkit.noise`), ~10 ns je Punkt und Oktave | BSD; Maschinencode-Cache in `__pycache__` |
 
 Nicht verwenden: das PyPI-Paket `sdf` (Scientific Data Format, nicht fogleman/sdf), `libfive`
 (unter Windows nicht per pip installierbar), `open3d` (groß, ohne Mehrwert).
@@ -51,17 +52,21 @@ Nicht verwenden: das PyPI-Paket `sdf` (Scientific Data Format, nicht fogleman/sd
 
 | Modul | Inhalt |
 |---|---|
-| `sdf.py` | `Sdf` (Basis: `distance`, `bounds`, `gradient_normals`, `project_to_surface`), `Ellipsoid`, `TaperedCapsule`, `TubeChain`, `RoundedBox`, `smooth_min`, `SmoothUnion`, `SmoothSubtraction`, `Aabb` — Konvention negativ innen, Meter, Punkte `(N, 3)` |
+| `sdf.py` | `Sdf` (Basis: `distance`, `bounds`, `gradient`, `gradient_normals`, `project_to_surface` mit Newton-Schritt d·∇d/\|∇d\|²), `Ellipsoid`, `TaperedCapsule`, `TubeChain`, `RoundedBox`, `smooth_min`, `SmoothUnion`, `SmoothSubtraction`, `Aabb` — Konvention negativ innen, Meter, Punkte `(N, 3)` |
+| `noise.py` | `Fractal` (fBm/ridged, Oktaven gedreht, `min_wavelength` schneidet Oktaven ab), `Cellular` → `CellularSample` (F1, F2, Zellwerte, `edge`, `blended_value`), `DomainWarp`, `hash01` — numba-Kernel, seedbar |
+| `sweep.py` | `sweep_tube` (Röhre mit Parallel-Transport-Rahmen, Spitze, kachelnde UVs, Tangenten), `sweep_ribbon` (gewölbtes Band), `transport_frames`, `SweptMesh` |
+| `tiling.py` | `periodic_noise` (FFT-Spektralrauschen, nahtlos kachelnd, dehnbar), `height_to_normal`, `encode_normal`, `encode_linear` |
+| `sdf_asset.py` | `bake_sdf_asset` (grobes Feld vernetzen, abwickeln, Detailnormalen aus dem feinen Feld, AO), `detail_normals` (Tetraeder-Gradient), `stopwatch` |
 | `meshing.py` | `sample_grid` (blockweise, RAM-begrenzt), `mesh_from_sdf` (Marching Cubes), `edge_length_for_budget`, `remesh_isotropic`, `decimate_quadric`, `remesh_to_budget` |
 | `geometry.py` | `TriangleMesh`, `ShadedMesh`, `to_manifold`/`from_manifold`, `union_all`, `hull_tube`, `ellipsoid_solid`, `shade_with_creases`, `area_weighted_normals` |
-| `uv.py` | `UvOptions(resolution, padding=4, texels_per_unit=0.0)`, `UnwrappedMesh` (`take`, `mirrored_x`), `unwrap(mesh, options)` — UVs in [0, 1], v nach unten wie in glTF |
+| `uv.py` | `UvOptions(resolution, padding=4, texels_per_unit=0.0)`, `UnwrappedMesh` (`take`, `tangents` nach glTF, `mirrored_x`), `unwrap(mesh, options)` — UVs in [0, 1], v nach unten wie in glTF |
 | `shading.py` | `srgb_to_linear`, `linear_to_srgb`, `smoothstep`, `solid_color`, `banded_color`, `SurfaceZone(region, color, roughness, metallic)`, `SurfaceSample`, `evaluate_zones`, `bake_ambient_occlusion` |
-| `baking.py` | `rasterize_uv(mesh, resolution) → TexelMap` (je Texel Dreieck, Baryzentrik, Weltposition, Normale; `coverage`, `interpolate`), `scatter_with_dilation`, `bake_occlusion` (AO auf gröberem Raster, bilinear hochgerechnet), `bake_base_color` (→ sRGB, optional Alpha), `bake_orm` |
+| `baking.py` | `rasterize_uv(mesh, resolution) → TexelMap` (je Texel Dreieck, Baryzentrik, Weltposition, Normale; `coverage`, `interpolate`), `scatter_with_dilation`, `bake_occlusion` (AO auf gröberem Raster, bilinear hochgerechnet), `bake_base_color` (→ sRGB, optional Alpha), `bake_orm`, `bake_normal_map` (Tangentenraum nach glTF), `bake_channels` |
 | `transforms.py` | `rotation_matrix`, `axis_angle_quaternions` (glTF-Reihenfolge xyzw) |
-| `gltf_writer.py` | `MaterialSpec` (Faktoren, Textur-Slots baseColor/metallicRoughness/occlusion/normal, Alpha-Modus), `PrimitiveData` (`uvs`, `tangents`, `colors` optional), `RotationTrack`, `GltfBuilder` (`add_texture`, `add_material`, `add_mesh`, `add_node`, `add_rotation_animation`, `write_glb`) |
+| `gltf_writer.py` | `MaterialSpec` (Faktoren, Textur-Slots baseColor/metallicRoughness/occlusion/normal, Alpha-Modus mit `alpha_cutoff`), `PrimitiveData` (`uvs`, `tangents`, `colors` optional), `RotationTrack`, `InstanceSet`, `GltfBuilder` (`add_texture` mit `wrap="clamp"`/`"repeat"`, `add_material`, `add_mesh`, `add_node` mit `scale` und `extras`, `add_instanced_node` → `EXT_mesh_gpu_instancing`, `import_glb_mesh` übernimmt ein Mesh samt Materialien und Texturen aus einem fertigen glb, `add_rotation_animation`, `write_glb`) |
 
-Neue Bausteine (weitere SDF-Primitive, Ribbon-Netze, L-System, Normal-Map-Backen) kommen als
-Klassen bzw. Funktionen in das passende Modul, mit Type Hints und deutschen Docstrings.
+Weitere Bausteine (SDF-Primitive, L-System) kommen als Klassen bzw. Funktionen in das passende
+Modul, mit Type Hints und deutschen Docstrings. Inseln und ihre Teile: Skill `babylon-islands`.
 
 ## Aufbau eines Generators
 
@@ -124,7 +129,9 @@ builder.write_glb(raw_dir / "bee.glb")
 
 ## Build: `build_all.py`
 
-`GENERATORS = (bee, …)` — neue Generatoren werden dort eingetragen. Ablauf je Roh-glb:
+`GENERATORS = (bee, …)` — Generatoren werden dort eingetragen; wer fertige Teile anderer
+Generatoren einbaut, steht nach ihnen. Unterordner unter `.temp/models/` bleiben im Ziel
+erhalten. Ablauf je Roh-glb:
 
 1. `npx gltf-transform validate` — bricht bei Fehlern oder Warnungen ab.
 2. `npx gltf-transform optimize <roh> public/assets/models/<name>.glb --texture-compress webp
@@ -173,9 +180,10 @@ Dutzend (parallele Berechnung in den Bibliotheken) — Tests prüfen Kennzahlen 
    Dilatation zusammen wählen.
 4. **AO-Reichweite** relativ zur Modellgröße wählen (Biene: 5 cm bei 0,47 m Länge); getrennte
    Teile (Augen) als Verdecker mitgeben.
-5. **Normal-Maps:** Babylon leitet Tangenten ohne `TANGENT`-Attribut selbst ab; wer eine
-   Tangentenraum-Normal-Map backt, schreibt `TANGENT` mit derselben Basis. `GltfBuilder` kann
-   beides schreiben, die Biene nutzt keine Normal-Map.
+5. **Normal-Maps:** Wer eine Tangentenraum-Normal-Map backt, schreibt `TANGENT` mit derselben
+   Basis (`UnwrappedMesh.tangents`, `SweptMesh.tangents`); ohne das Attribut warnt der Validator
+   (`MESH_PRIMITIVE_GENERATED_TANGENT_SPACE`), und `build_all.py` bricht ab. glTF-Konvention:
+   +X = +u, +Y zeigt zum Bildrand v = 0, Bitangente = cross(N, T) · w.
 6. **`manifold3d.level_set`:** positiv bedeutet innen (umgekehrt zur SDF-Konvention), erzeugt bei
    gleicher Kantenlänge etwa doppelt so viele Dreiecke wie Marching Cubes und ist mit
    NumPy-Callbacks sehr langsam (15 s; `mesh_from_sdf` braucht 0,1 s). `mesh_from_sdf` verwenden.
@@ -188,3 +196,7 @@ Dutzend (parallele Berechnung in den Bibliotheken) — Tests prüfen Kennzahlen 
     deshalb validiert `build_all.py` das Roh-glb.
 11. **Feine Muster** (Facetten, Adern) an die Texturgröße koppeln: Strukturen unter ~2 Texeln
     flimmern bzw. zeigen Moiré; je LOD die Musterweite anpassen (`facet_degrees` in `bee.py`).
+12. **`optimize` führt gleiche Materialien zusammen:** Materialien, die das Spiel getrennt
+    ansteuert (Texturen verschieben, Farbe wechseln), brauchen unterschiedliche Werte.
+13. **Profiler- und Probeausgaben** (`cProfile`, Testbilder) in den Scratchpad bzw. `.temp/`
+    schreiben, nie in den Repo-Root.

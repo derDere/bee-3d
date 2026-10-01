@@ -46,6 +46,35 @@ class UnwrappedMesh:
         """Überträgt Eckpunkt-Attribute des Eingabenetzes auf die duplizierten Eckpunkte."""
         return attributes[self.source_index]
 
+    def tangents(self) -> FloatArray:
+        """Tangenten je Eckpunkt (V, 4) nach glTF: xyz = Richtung von +u, w = Händigkeit.
+
+        Die Bitangente ``cross(N, T) · w`` zeigt zum Bildrand v = 0 (+Y einer glTF-Normal-Map).
+        Flächengewichtet gemittelt und gegen die Normale orthogonalisiert (Gram-Schmidt).
+        """
+        p0, p1, p2 = (self.vertices[self.faces[:, i]] for i in range(3))
+        t0, t1, t2 = (self.uvs[self.faces[:, i]] for i in range(3))
+        e1, e2 = p1 - p0, p2 - p0
+        d1, d2 = t1 - t0, t2 - t0
+        determinant = d1[:, 0] * d2[:, 1] - d2[:, 0] * d1[:, 1]
+        valid = np.abs(determinant) > 1e-20
+        inverse = np.where(valid, 1.0 / np.where(valid, determinant, 1.0), 0.0)
+        along_u = (e1 * d2[:, 1:2] - e2 * d1[:, 1:2]) * inverse[:, None]
+        along_v = (e2 * d1[:, 0:1] - e1 * d2[:, 0:1]) * inverse[:, None]
+        area = 0.5 * np.linalg.norm(np.cross(e1, e2), axis=1, keepdims=True)
+        tangent_sum = np.zeros_like(self.vertices)
+        bitangent_sum = np.zeros_like(self.vertices)
+        for corner in range(3):
+            np.add.at(tangent_sum, self.faces[:, corner], _normalized(along_u) * area)
+            np.add.at(bitangent_sum, self.faces[:, corner], _normalized(along_v) * area)
+        normals = self.normals
+        tangent = tangent_sum - normals * np.einsum("ij,ij->i", tangent_sum, normals)[:, None]
+        fallback = np.cross(normals, np.where(np.abs(normals[:, :1]) < 0.9, [[1.0, 0.0, 0.0]], [[0.0, 1.0, 0.0]]))
+        tangent = np.where(np.linalg.norm(tangent, axis=1, keepdims=True) > 1e-12, tangent, fallback)
+        tangent = _normalized(tangent)
+        handedness = np.where(np.einsum("ij,ij->i", np.cross(normals, tangent), -bitangent_sum) < 0.0, -1.0, 1.0)
+        return np.concatenate([tangent, handedness[:, None]], axis=1)
+
     def mirrored_x(self) -> UnwrappedMesh:
         """Spiegelt das Netz an der Ebene x = 0; die Texturkoordinaten bleiben erhalten."""
         flip = np.array([-1.0, 1.0, 1.0])
@@ -56,6 +85,10 @@ class UnwrappedMesh:
             self.uvs,
             self.source_index,
         )
+
+
+def _normalized(vectors: FloatArray) -> FloatArray:
+    return vectors / np.maximum(np.linalg.norm(vectors, axis=1, keepdims=True), 1e-12)
 
 
 def unwrap(mesh: ShadedMesh, options: UvOptions) -> UnwrappedMesh:

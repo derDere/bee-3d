@@ -40,7 +40,13 @@ async function main(): Promise<void> {
 
     const stats = collectStats(model, bounds);
     const overlay = new Overlay(overlayHost);
-    const sheet = new ContactSheet(scene, engine, bounds, { point: params.focus, size: params.focusSize }, overlay);
+    const sheet = new ContactSheet(
+      scene,
+      engine,
+      bounds,
+      { point: params.focus, size: params.focusSize, direction: params.focusDirection },
+      overlay,
+    );
     const [sx, sy, sz] = stats.boundingBox.size;
     const animationText = stats.animations.length > 0
       ? `anim ${params.animationName ?? "*"} t=${params.animationTime}s`
