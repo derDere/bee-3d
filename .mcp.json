@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--headless",
+        "--isolated",
+        "--viewport=1280x720",
+        "--no-usage-statistics",
+        "--no-performance-crux"
+      ]
+    },
+    "babylon-nme": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@babylonjs/mcp-servers@latest", "nme"]
+    },
+    "babylon-npe": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@babylonjs/mcp-servers@latest", "npe"]
+    }
+  }
+}
