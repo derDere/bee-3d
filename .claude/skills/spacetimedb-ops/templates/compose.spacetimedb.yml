@@ -1,0 +1,44 @@
+# Ausschnitt fuer docker-compose.yml: der SpacetimeDB-Dienst des Stacks.
+# Drittanbieter-Image, nur Konfiguration wird eingehaengt (Skill docker-stack).
+# Version exakt pinnen und gleich halten mit CLI, npm-Paket spacetimedb und Client-Bindings.
+
+services:
+  spacetimedb:
+    image: clockworklabs/spacetime:v2.10.2
+    # Versionierte config.toml bei jedem Start in das Datenverzeichnis kopieren, dann den Server starten.
+    # --root-dir legt Daten (/stdb/data) und Signaturschluessel (/stdb/config) in das eine Volume.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p /stdb/data &&
+        cp /etc/spacetimedb/config.toml /stdb/data/config.toml &&
+        exec spacetime --root-dir=/stdb start --listen-addr=0.0.0.0:3000 --non-interactive
+    volumes:
+      - ./mounts/spacetimedb:/stdb                                   # Laufzeitdaten + Schluessel: sichern!
+      - ./docker/spacetimedb/config.toml:/etc/spacetimedb/config.toml:ro
+    ports:
+      # Nur Loopback: CLI, MCP und Vite-Dev-Client des Entwicklers; oeffentlich nur ueber den Proxy.
+      - "127.0.0.1:${SPACETIMEDB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/v1/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    # Der Server faehrt nur bei SIGINT geordnet herunter; SIGTERM ignoriert er als PID 1 (Abbruch erst per SIGKILL).
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+    restart: unless-stopped
+    networks:
+      - internal
+    # Produktion: oeffentliche Routen ueber das Edge-Netz des uebergeordneten Proxys (Skill docker-stack);
+    # Routen-Allowlist siehe Skill spacetimedb-ops, references/proxy.md.
+    # networks:
+    #   - internal
+    #   - edge
+
+networks:
+  internal: {}
+  # edge:
+  #   name: ${EDGE_NETWORK}
+  #   external: true

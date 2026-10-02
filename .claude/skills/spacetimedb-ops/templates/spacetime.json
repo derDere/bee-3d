@@ -1,0 +1,10 @@
+// spacetime.json — Projektkonfiguration der spacetime-CLI (JSON5). Eingecheckt; persönliche
+// Abweichungen gehören in spacetime.local.json (git-ignoriert).
+{
+  "database": "bee-world",
+  "server": "local",
+  "module-path": "./server",
+  "generate": [
+    { "language": "typescript", "out-dir": "./src/net/bindings" }
+  ]
+}

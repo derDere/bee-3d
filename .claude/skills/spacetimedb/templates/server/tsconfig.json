@@ -1,0 +1,14 @@
+{
+  // Von `spacetime init --lang typescript` übernommen; target, lib und module verlangt SpacetimeDB so.
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "lib": ["ES2021", "dom"],
+    "module": "ESNext",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["./src/**/*", "../shared/**/*"]
+}

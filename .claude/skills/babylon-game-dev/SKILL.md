@@ -1,6 +1,6 @@
 ---
 name: babylon-game-dev
-description: Grundlagen und Einstieg für 3D-Browserspiele mit Babylon.js 9.x (TypeScript, Vite, ES-Module) — Stack, API-Verifikation gegen die installierten Typings, Paketversionen, Projektstruktur, Engine-Bootstrap mit WebGPU und WebGL2-Rückfallebene, Side-Effect-Imports, Debug-API und Arbeitsablauf. Wegweiser zu den Spezial-Skills für Grafik, Gameplay, Performance, visuelle Prüfung, Assets und Modellierung. Laden, sobald ein Babylon.js-Spiel oder eine Babylon-Szene geplant, aufgesetzt oder weiterentwickelt wird.
+description: Grundlagen und Einstieg für 3D-Browserspiele mit Babylon.js 9.x (TypeScript, Vite, ES-Module) — Stack, API-Verifikation gegen die installierten Typings, Paketversionen, Projektstruktur, Engine-Bootstrap mit WebGPU und WebGL2-Rückfallebene, Side-Effect-Imports, Debug-API und Arbeitsablauf. Wegweiser zu den Spezial-Skills für Grafik, Gameplay, Performance, visuelle Prüfung, Assets, Modellierung und Multiplayer mit SpacetimeDB. Laden, sobald ein Babylon.js-Spiel oder eine Babylon-Szene geplant, aufgesetzt oder weiterentwickelt wird.
 ---
 
 # Babylon.js-Browserspiele — Grundlagen
@@ -196,6 +196,8 @@ Jeder Schritt endet mit einem Stand, den der User im Browser ansehen kann.
 | MCP `context7` | Babylon-Doku (`/websites/doc_babylonjs`) | Benutzer-Scope |
 | Inspector-CLI `npx babylon-inspector` | laufende Szene abfragen (JSON), Frame-Statistiken, Off-Screen-Screenshots | devDependency `@babylonjs/inspector` |
 | `npx gltf-transform` | Modelle prüfen und optimieren | devDependency `@gltf-transform/cli` |
+| MCP `spacetimedb` | SpacetimeDB-Datenbank des lokalen Stacks: Schema, SQL, Reducer-Aufrufe | `.mcp.json` (`spacetime mcp` mit der Besitzer-Identität; braucht die spacetime-CLI) → Skill `spacetimedb` |
+| MCP `deepwiki` | Fragen zum SpacetimeDB-Quelltext | `.mcp.json` (remote, ohne Konto; keine Projektgeheimnisse in Fragen) |
 
 Die Babylon-MCP-Server zeigen ihre Graphen live im Web-Editor: Session-URL (`get_session_url`)
 im Editor unter „MCP Session" einfügen. `save_snippet` veröffentlicht auf dem öffentlichen
@@ -214,3 +216,8 @@ Snippet-Server — nur nach Freigabe; ausgeliefert wird exportiertes JSON.
 | Schwebende Inseln und ihre Teile (Bäume, Gras, Blumen, Felsen, Wasserfall) | Skill `babylon-islands` |
 | Himmelswelt: Tag-Nacht-Zyklus mit Mond und Sternen, Volumenwolken und Wolkenmeer, Nebel, Sonnen- und Mondstrahlen, Wetter und Regen, Flug durch Wolken | Skill `babylon-sky`, Agent `babylon-sky-reviewer` |
 | Babylon-API nachschlagen und verifizieren | Agent `babylon-api-verifier` |
+| Multiplayer-Backend SpacetimeDB: Modul, Client-SDK, CLI, Versionen, API-Prüfung | Skill `spacetimedb`, Agent `spacetimedb-api-verifier` |
+| Viele Spieler auf wenig Hardware: Datenmodell, Weltakt, Interessenzellen, Lasttests | Skill `spacetimedb-performance`, Agent `spacetimedb-load-tester` |
+| Zugang, Konten, Cheat-Schutz, Härtung von Modul und Server | Skill `spacetimedb-security`, Agent `spacetimedb-module-reviewer` |
+| SpacetimeDB im Docker-Stack: Veröffentlichen, Migrationen, Backups, Upgrades, Proxy | Skill `spacetimedb-ops` |
+| Netzanbindung des Spiels: Verbindung, Replikation, Interpolation, Serverkorrekturen | Skill `spacetimedb-babylon` |

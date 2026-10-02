@@ -22,6 +22,21 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@babylonjs/mcp-servers@latest", "npe"]
+    },
+    "spacetimedb": {
+      "type": "stdio",
+      "command": "spacetime",
+      "args": [
+        "--config-path",
+        "mounts/spacetime-cli/cli.toml",
+        "mcp",
+        "--server",
+        "http://127.0.0.1:3000"
+      ]
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp"
     }
   }
 }

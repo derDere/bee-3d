@@ -1,0 +1,13 @@
+{
+  "name": "bee-world-module",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "//": "Version von spacetimedb gleich halten mit Server-Image, CLI und Client-SDK (Lockstep).",
+  "dependencies": {
+    "spacetimedb": "2.10.2"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

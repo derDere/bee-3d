@@ -5,3 +5,6 @@ __pycache__/
 
 # Rohdaten und Zwischenstände
 .temp/
+
+# Laufzeitdaten der Container; mounts/spacetime-cli/ enthält das Besitzer-Token von SpacetimeDB
+mounts/
