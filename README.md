@@ -67,7 +67,7 @@ Vollständig: `spec/steuerung.md`. Touch: zwei virtuelle Sticks (Flug links, Zie
 spec/        Anforderungen (spec/anforderungen.md), Spieldesign, Steuerung, Technik, Zielbilder (spec/look/)
 docs/        Asset-Herkunft und Lizenzen (assets.md), Hinweise für den Betrieb (betrieb.md),
              Prüfung gegen die Anforderungen (pruefprotokoll.md), offene Punkte (offene-punkte.md)
-dev/         Demodaten (dev/seed/), Referenzen
+dev/         Demodaten (dev/seed/), Referenzen, Präsentation des Spiels (bee3d-showcase.html)
 shared/      Weltkonstanten, Weltgenerator, Regeln, Quests – Client und Modul
 server/      SpacetimeDB-Modul
 src/         Client: core, rendering (Himmel, Wolken), world, entities, systems, hud, net, debug
