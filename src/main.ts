@@ -6,11 +6,11 @@ import { Game } from "./core/game";
 async function main(): Promise<void> {
   const canvas = document.getElementById("renderCanvas");
   if (!(canvas instanceof HTMLCanvasElement)) {
-    throw new Error("Canvas #renderCanvas fehlt.");
+    throw new Error("Canvas #renderCanvas is missing.");
   }
   const hudRoot = document.getElementById("hud");
   if (!(hudRoot instanceof HTMLElement)) {
-    throw new Error("HUD-Container #hud fehlt.");
+    throw new Error("HUD container #hud is missing.");
   }
   const engine = await createEngine(canvas);
   const game = await Game.createAsync(engine, hudRoot);

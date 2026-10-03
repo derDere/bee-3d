@@ -280,7 +280,7 @@ class WorldGenerator {
   }
 
   private addHive(id: number, x: number, y: number, z: number, cos: number, sin: number): void {
-    this.hives.push({ id, name: HiveNames[id] ?? `Stock ${id}`, x, y, z, cos, sin, cell: packCell(x, z) });
+    this.hives.push({ id, name: HiveNames[id] ?? `Hive ${id}`, x, y, z, cos, sin, cell: packCell(x, z) });
     this.grid.add({ x, z, radius: HiveRadius + 40, bottom: y - HiveHeight, top: y + HiveHeight });
   }
 

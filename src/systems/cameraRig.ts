@@ -4,9 +4,9 @@ import type { Scene } from "@babylonjs/core/scene";
 import type { FrameSystem } from "../core/gameLoop";
 
 /** Betriebsart der Kamera (Kameramodus). */
-export type CameraMode = "orbit" | "free" | "hangar";
+export type CameraMode = "orbit" | "free";
 
-/** Ziel der Orbit-Kamera: Position und Tempo der eigenen Biene (Kameraziel). */
+/** Ziel der Orbit-Kamera: Position und Tempo dessen, was die Kamera zeigt (Kameraziel). */
 export interface CameraSubject {
   readonly position: Vector3;
   readonly speed: number;
@@ -20,9 +20,9 @@ const MaxDistance = 420;
 const BaseFovDeg = 62;
 
 /**
- * Orbit-Kamera nach EVE-Vorbild (Kamera): kreist um die eigene Biene, Ziehen mit der linken Maustaste dreht,
- * das Mausrad zoomt; die Blickrichtung ändert die Flugrichtung nicht. Zusätzlich freie Kamerapunkte für die
- * Debug-API und die Hangar-Ansicht im Bienenstock.
+ * Orbit-Kamera nach EVE-Vorbild (Kamera): kreist um ihr Ziel – die eigene Biene, im Hangar die Biene in der
+ * Wabenhalle oder ein angesehenes Objekt. Ziehen mit der linken Maustaste dreht, das Mausrad zoomt; die
+ * Blickrichtung ändert die Flugrichtung nicht. Zusätzlich freie Kamerapunkte für die Debug-API.
  */
 export class CameraRig implements FrameSystem {
   public readonly camera: TargetCamera;
@@ -86,12 +86,6 @@ export class CameraRig implements FrameSystem {
     this.camera.position.copyFrom(position);
     this.freeTarget.copyFrom(target);
     this.camera.setTarget(this.freeTarget);
-  }
-
-  /** Hangar-Ansicht im Bienenstock: feste Kamera mit Blick in die Wabenhalle. */
-  public setHangar(position: Vector3, target: Vector3): void {
-    this.setFree(position, target);
-    this.mode = "hangar";
   }
 
   /** Kehrt zur Orbit-Kamera zurück. */

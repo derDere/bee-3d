@@ -141,6 +141,7 @@ export class MockGame implements HudActions {
   private keepRangeDistance = 15;
   private warpUntil = 0;
   private showHelp = false;
+  private lookTarget: EntityRef | undefined;
   private banner: string | undefined;
   private bannerUntil = 0;
   private connectionIndex = 0;
@@ -156,9 +157,12 @@ export class MockGame implements HudActions {
     }
   }
 
-  /** Wechselt die Lage der Seite; jede Lage beginnt mit passenden Werten. */
+  /** Wechselt die Lage der Seite; jede Lage beginnt mit passenden Werten. Wie im Spiel endet das Ansehen beim Andocken. */
   public setScenario(scenario: DemoScenario): void {
     this.scenario = scenario;
+    if (scenario === "docked" || scenario === "start") {
+      this.lookTarget = undefined;
+    }
     if (scenario === "flight") {
       this.resetFlight();
       this.showBanner("Welcome to the sky sphere!", 4);
@@ -272,6 +276,7 @@ export class MockGame implements HudActions {
       banner: this.banner,
       showHelp: this.showHelp,
       fps,
+      lookAt: this.lookTarget,
     };
   }
 
@@ -427,6 +432,11 @@ export class MockGame implements HudActions {
     this.setScenario("docked");
   }
 
+  public lookAt(ref: EntityRef | undefined): void {
+    this.trace("lookAt", ref);
+    this.lookTarget = ref;
+  }
+
   public buzz(): void {
     this.trace("buzz");
     this.addLog("system", "You buzz happily. Everyone nearby hears it.");
@@ -446,6 +456,10 @@ export class MockGame implements HudActions {
 
   public setReduceFlashes(reduce: boolean): void {
     this.trace("setReduceFlashes", reduce);
+  }
+
+  public setUiScale(scale: number): void {
+    this.trace("setUiScale", scale);
   }
 
   public toggleHelp(): void {

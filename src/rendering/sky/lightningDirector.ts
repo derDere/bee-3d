@@ -315,8 +315,8 @@ export class LightningDirector {
 
   /**
    * Sucht eine Gewitterwolke in 300 m – 4 km um die Kamera. Ohne Treffer gibt es keinen Blitz. Erzwungene Blitze
-   * suchen im Blickfeld und wählen unter mehreren Gewitterwolken die mit der am besten sichtbaren Wolkenbasis, sonst die dichteste
-   * gefundene Wolke oder einen Punkt vor der Kamera.
+   * suchen im Blickfeld und wählen unter mehreren Gewitterwolken die mit der am besten sichtbaren Wolkenbasis, sonst
+   * die dichteste gefundene Wolke oder einen Punkt vor der Kamera.
    */
   private findSite(force: boolean): StrikeSite | undefined {
     const camera = this.camera.globalPosition;

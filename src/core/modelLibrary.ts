@@ -1,8 +1,10 @@
 import type { AssetContainer, InstantiatedEntries } from "@babylonjs/core/assetContainer";
+import { BoundingInfo } from "@babylonjs/core/Culling/boundingInfo";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Logger } from "@babylonjs/core/Misc/logger";
 import type { Scene } from "@babylonjs/core/scene";
+import { useMaterialImageProcessing } from "../rendering/materialImageProcessing";
 import { MaterialVariantTable } from "./materialVariants";
 
 const ModelBase = `${import.meta.env.BASE_URL}assets/models/`;
@@ -22,8 +24,12 @@ export class ModelLibrary {
   public load(file: string): Promise<AssetContainer | undefined> {
     let pending = this.containers.get(file);
     if (pending === undefined) {
-      pending = LoadAssetContainerAsync(`${ModelBase}${file}`, this.scene, { pluginOptions: { gltf: { compileMaterials: true } } })
+      // Ohne Transmission-Helfer: Er rendert für durchscheinende Flügel und Stoffe jeden Frame die ganze Szene ein zweites Mal.
+      pending = LoadAssetContainerAsync(`${ModelBase}${file}`, this.scene, { pluginOptions: { gltf: { compileMaterials: true, dontUseTransmissionHelper: true } } })
         .then((container) => {
+          for (const material of container.materials) {
+            useMaterialImageProcessing(material);
+          }
           // Varianten vor der ersten Kopie erfassen (siehe MaterialVariantTable)
           this.variantTables.set(file, new MaterialVariantTable(container));
           this.loaded.set(file, container);
@@ -68,7 +74,10 @@ export class ModelLibrary {
 
   /**
    * Übernimmt die GPU-Instanzen (EXT_mesh_gpu_instancing: Matrizen und Farben) der Quell-Meshes in die Kopien;
-   * das Klonen in instantiateModelsToScene lässt sie weg. Zuordnung über den Namen, gleichnamige der Reihe nach.
+   * das Klonen in instantiateModelsToScene lässt sie weg. Kopien teilen die Geometrie mit ihrer Quelle, und Babylon
+   * hängt die Instanzpuffer an die Geometrie: Die Kopien zeichnen deshalb mit den Puffern der Quelle aus dem
+   * geladenen Container und setzen nur ihre Exemplarzahl (Ausdünnen). Eigene Puffer je Kopie würden beim Entladen
+   * einer Kopie die Puffer freigeben, an denen die übrigen Kopien noch hängen.
    */
   private static copyThinInstances(container: AssetContainer, entries: InstantiatedEntries, name: string): void {
     const sources = container.meshes.filter((mesh): mesh is Mesh => mesh instanceof Mesh && mesh.thinInstanceCount > 0);
@@ -91,19 +100,13 @@ export class ModelLibrary {
       const index = used.get(key) ?? 0;
       used.set(key, index + 1);
       const clone = clones.get(key)?.[index];
-      const matrices = source._thinInstanceDataStorage.matrixData;
-      if (clone === undefined || matrices === null) {
+      if (clone === undefined || clone.source !== source) {
         continue;
       }
-      // Die Puffer bleiben geteilt: Kopien ändern nur ihre Exemplarzahl (Ausdünnen), nie die Daten
-      clone.thinInstanceSetBuffer("matrix", matrices, 16, true);
-      const user = source._userThinInstanceBuffersStorage as typeof source._userThinInstanceBuffersStorage | undefined;
-      const colors = user?.data["color"];
-      const stride = user?.strides["color"];
-      if (colors !== undefined && stride !== undefined) {
-        clone.thinInstanceSetBuffer("color", colors, stride, true);
-      }
       clone.thinInstanceCount = source.thinInstanceCount;
+      // Begrenzung über alle Exemplare aus der Quelle (eigenes Objekt: jede Kopie führt ihre Weltlage selbst)
+      const box = source.getBoundingInfo().boundingBox;
+      clone.setBoundingInfo(new BoundingInfo(box.minimum.clone(), box.maximum.clone()));
     }
   }
 

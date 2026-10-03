@@ -268,6 +268,12 @@ const Markup: Readonly<Record<IconName, string>> = {
     rect(7.4, 14, 17.2, 14, 2.2, Color.cream) +
     shape("M3.8 15.6L16 4.8l12.2 10.8c.6.6.2 1.6-.6 1.6H4.4c-.8 0-1.2-1-.6-1.6z", Color.red) +
     heart(16, 21.6, 0.62, Color.pink),
+  lookAt:
+    line("M8.8 9.8L6.8 6.6M16 8V4.2M23.2 9.8l2-3.2", 1.9) +
+    shape("M2.6 18.4C6.2 12.6 10.8 9.8 16 9.8s9.8 2.8 13.4 8.6C25.8 24.2 21.2 27 16 27S6.2 24.2 2.6 18.4z", Color.white) +
+    circle(16, 18.4, 6.2, Color.sky) +
+    dot(16, 18.4, 3, Color.dark) +
+    dot(18, 16.4, 1.3, Color.white),
 
   // ---------- Module ----------
   laserLeft:
@@ -448,7 +454,7 @@ function template(name: IconName): SVGSVGElement {
     holder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-hidden="true" focusable="false">${Markup[name]}</svg>`;
     const parsed = holder.content.firstElementChild;
     if (!(parsed instanceof SVGSVGElement)) {
-      throw new Error(`Symbol ${name} ließ sich nicht anlegen.`);
+      throw new Error(`Icon ${name} could not be created.`);
     }
     svg = parsed;
     Templates.set(name, svg);

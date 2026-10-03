@@ -60,7 +60,7 @@ class HoneyCell {
     const svg = holder.content.firstElementChild;
     const level = svg?.querySelector(".cell-level");
     if (!(svg instanceof SVGSVGElement) || level === null || level === undefined) {
-      throw new Error("Wabenzelle ließ sich nicht anlegen.");
+      throw new Error("Honeycomb cell could not be created.");
     }
     this.element.appendChild(svg);
     this.level = new AttributeSlot(level, "transform");

@@ -14,7 +14,7 @@ import type { EffectsApi } from "../entities/effects/effectTypes";
 import { FlyViews } from "../entities/flyViews";
 import { PlayerBee } from "../entities/player/playerBee";
 import { RemoteBeeViews } from "../entities/remoteBeeViews";
-import type { ConnectionStatus, ContextMenuEntry, DayPhaseIcon, HudActions, HudModel, HudSettings, PlayerHud, SkyHud, StationHud } from "../hud/hudTypes";
+import type { ConnectionStatus, ContextMenuEntry, DayPhaseIcon, EntityRef, HudActions, HudModel, HudSettings, PlayerHud, SkyHud, StationHud } from "../hud/hudTypes";
 import type { BeeState } from "../net/bindings/types";
 import { BrowserTokenStore, bindPageLifecycle } from "../net/browserSession";
 import { resolveSessionOptions } from "../net/netConfig";
@@ -31,7 +31,7 @@ import { InputController, type InputActions, type TouchSource } from "../systems
 import { QDial } from "../systems/input/qDial";
 import { ModuleController } from "../systems/modules/moduleController";
 import { ScreenProjector } from "../systems/screenProjector";
-import { SpaceObjects } from "../systems/targeting/spaceObjects";
+import { refKey, SpaceObjects } from "../systems/targeting/spaceObjects";
 import { Targeting } from "../systems/targeting/targeting";
 import type { HiveViews } from "../world/hiveViews";
 import type { FrameSystem, GameLoop } from "./gameLoop";
@@ -75,6 +75,13 @@ export interface GameplayServices {
 }
 
 const BannerSeconds = 6;
+/** Ansehen: Kameraabstand als Vielfaches des Objektradius, mindestens LookAtMinDistance (Meter). */
+const LookAtRadiusFactor = 3;
+const LookAtMinDistance = 2;
+/** Hangar: Kameraabstand beim Andocken, größter Zoom in der Wabenhalle (Meter) und Dreiviertelansicht der Biene (rad). */
+const HangarCameraDistance = 0.55;
+const HangarCameraReach = 2.5;
+const HangarFaceOffset = 0.6;
 const RejectionTexts: Readonly<Record<string, string>> = {
   "too far": "Too far away.",
   "too close": "Too close to warp.",
@@ -133,6 +140,12 @@ export class Gameplay {
   private bannerText: string | undefined;
   private bannerUntil = 0;
   private dockedHive: number | undefined;
+  /** Kameraziel: gezeichnete Lage der eigenen Biene oder das angesehene Objekt (Kamerafokus). */
+  private readonly cameraFocus = { position: new Vector3(), speed: 0 };
+  /** Objekt, das die Kamera ansieht (Ansehen wie in EVE); undefined = eigene Biene. */
+  private lookTarget: EntityRef | undefined;
+  /** Kameraabstand zur eigenen Biene vor dem Ansehen, für die Rückkehr. */
+  private ownOrbitDistance = 1.6;
   private lastDockedHive = 0;
   private wasGhost = false;
   private weatherKey = "";
@@ -207,6 +220,8 @@ export class Gameplay {
       dockPoint: (hiveId) => this.dockPoint(hiveId),
       online: () => this.net.isOnline,
       startFreeAimBeams: () => this.startFreeAimBeams(),
+      lookTarget: () => this.lookTarget,
+      lookAt: (ref) => this.lookAt(ref),
       showContextMenu: (x, y, entries, title) => this.hud.showContextMenu(x, y, entries, title),
     });
     this.remoteBees = new RemoteBeeViews(services.scene, services.library, replica, services.shadows);
@@ -227,6 +242,7 @@ export class Gameplay {
       banner: () => this.banner(),
       showHelp: () => this.showHelp,
       fps: () => this.fpsValue,
+      lookAt: () => this.lookTarget,
       orbitDistance: () => this.commands.orbitDistance,
       keepRangeDistance: () => this.commands.keepRangeDistance,
       isDocked: () => this.player.condition.docked,
@@ -256,7 +272,7 @@ export class Gameplay {
     this.input.setInvertY(services.settings.value.invertY);
     services.sky.setThunderListener((position, intensity) => this.scheduleThunder(position, intensity));
     // Die Kamera kennt die Biene von Anfang an; bis zum Start zeigt sie einen freien Kamerapunkt
-    services.cameraRig.follow(this.player, (from, to) => this.cameraClearance(from, to));
+    services.cameraRig.follow(this.cameraFocus, (from, to) => this.cameraClearance(from, to));
     // Schon der Startbildschirm zeigt, ob der Bienenserver erreichbar ist; beigetreten wird beim Losfliegen
     this.net.start();
     this.unbindLifecycle = bindPageLifecycle(this.net);
@@ -390,6 +406,44 @@ export class Gameplay {
     this.remoteBees.frameUpdate(dt);
     this.flies.frameUpdate(dt);
     this.updateDocking(stats?.dockedHive);
+    this.updateCameraFocus();
+  }
+
+  /**
+   * Kameraziel je Frame: die gezeichnete (zwischen den Logikschritten interpolierte) Lage der eigenen Biene, damit
+   * sie auch im Warp genau in der Bildmitte bleibt, oder das angesehene Objekt.
+   */
+  private updateCameraFocus(): void {
+    const target = this.lookTarget === undefined ? undefined : this.objects.get(refKey(this.lookTarget));
+    if (this.lookTarget !== undefined && target === undefined) {
+      this.lookAt(undefined); // Ziel verschwunden: zurück zur eigenen Biene
+    }
+    if (target !== undefined) {
+      this.cameraFocus.position.copyFrom(target.position);
+      this.cameraFocus.speed = target.velocity.length();
+    } else {
+      this.cameraFocus.position.copyFrom(this.player.renderPosition);
+      this.cameraFocus.speed = this.player.speed;
+    }
+  }
+
+  /** Richtet die Kamera auf ein Objekt (Ansehen wie in EVE) oder zurück auf die eigene Biene. */
+  private lookAt(ref: EntityRef | undefined): void {
+    const rig = this.services.cameraRig;
+    const own = ref?.type === "bee" && ref.id === this.net.playerId;
+    const object = ref === undefined || own || this.player.condition.docked ? undefined : this.objects.get(refKey(ref));
+    if (object === undefined) {
+      if (this.lookTarget !== undefined) {
+        this.lookTarget = undefined;
+        rig.setOrbit(this.ownOrbitDistance);
+      }
+      return;
+    }
+    if (this.lookTarget === undefined) {
+      this.ownOrbitDistance = rig.distance;
+    }
+    this.lookTarget = object.ref;
+    rig.setOrbit(Math.max(LookAtMinDistance, object.radius * LookAtRadiusFactor));
   }
 
   private frameAfterCamera(_dt: number): void {
@@ -491,6 +545,7 @@ export class Gameplay {
     const rig = this.services.cameraRig;
     if (hiveId === undefined) {
       this.hud.hideContextMenu();
+      this.player.setHangarPose(undefined);
       if (this.started) {
         rig.resumeOrbit();
         this.faceAwayFromHive(this.lastDockedHive);
@@ -503,9 +558,16 @@ export class Gameplay {
     this.player.controller.stop();
     this.commands.finishDocking();
     this.targeting.clearLocks();
+    this.lookTarget = undefined;
     const anchors = this.services.hives.anchorsOf(hiveId);
     if (anchors !== undefined) {
-      rig.setHangar(anchors.hangarCamera, anchors.hangar);
+      // Die Biene schwebt in der Wabenhalle und schaut zur Hangarkamera; die Kamera kreist von dort aus um sie
+      const toCamera = anchors.hangarCamera.subtract(anchors.hangar);
+      const yaw = Math.atan2(toCamera.x, toCamera.z);
+      const pitch = Math.asin(Math.max(-1, Math.min(1, toCamera.y / Math.max(1e-3, toCamera.length()))));
+      this.player.setHangarPose(anchors.hangar, yaw + HangarFaceOffset);
+      rig.resumeOrbit();
+      rig.setOrbit(HangarCameraDistance, pitch, yaw);
     }
     this.services.audio.playUi("confirm");
   }
@@ -619,6 +681,7 @@ export class Gameplay {
       },
       returnHome: () => this.commands.returnHome(),
       buzz: () => this.buzz(),
+      lookAt: (ref) => this.lookAt(ref),
       setQuality: (tier) => this.services.applyQuality(tier),
       setVolume: (master, music) => {
         this.services.settings.update({ masterVolume: master, musicVolume: music });
@@ -631,6 +694,9 @@ export class Gameplay {
       setReduceFlashes: (reduce) => {
         this.services.settings.update({ reduceFlashes: reduce });
         this.services.sky.setReduceFlashes(reduce);
+      },
+      setUiScale: (scale) => {
+        this.services.settings.update({ uiScale: scale });
       },
       toggleHelp: () => {
         this.showHelp = !this.showHelp;
@@ -670,6 +736,7 @@ export class Gameplay {
       musicVolume: settings.musicVolume,
       invertY: settings.invertY,
       reduceFlashes: settings.reduceFlashes,
+      uiScale: settings.uiScale,
       suggestedName: settings.playerName || randomBeeName(),
     };
   }
@@ -789,6 +856,12 @@ export class Gameplay {
   /** Kamera nicht in Bienenstöcke schieben (Inseln prüft die Kollisionsfunktion der Welt). */
   private cameraClearance(from: Vector3, to: Vector3): number {
     const distance = Vector3.Distance(from, to);
+    if (this.player.condition.docked) {
+      return Math.min(distance, HangarCameraReach); // im Hangar bleibt die Kamera in der Wabenhalle
+    }
+    if (this.lookTarget !== undefined) {
+      return distance; // angesehene Inseln und Stöcke würden den Blick sonst selbst verdecken
+    }
     const steps = 8;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;

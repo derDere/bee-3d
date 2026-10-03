@@ -63,7 +63,9 @@ class PlantingStyle:
 
     ``trees`` sind Baumarten mit Gewicht, ``upper_trees`` die Arten der oberen Terrassenebene,
     ``solitary`` der Solitärbaum (am Teich, sonst nahe der Mitte). ``grove`` ist die Schwelle des
-    Hain-Rauschens (kleiner = mehr Wald). ``patches`` Blumenfelder mit Radius ``patch_radius``
+    Hain-Rauschens (kleiner = mehr Wald). ``thicket`` setzt weitere, etwas kleinere Bäume eng
+    zwischen und neben die Hainbäume (Anteil der Hainbäume), damit die Kronen zu einem dichten Dach
+    zusammenwachsen. ``patches`` Blumenfelder mit Radius ``patch_radius``
     (m) aus den Arten ``species``. ``deco_flowers`` sind Deko-Blumen je m² außerhalb der
     Felder, ``grass`` ein Faktor auf die Grasdichte, ``lilies`` der Anteil der Teichfläche mit
     Seerosen, davon ``lily_blossoms`` mit Blüte.
@@ -74,6 +76,7 @@ class PlantingStyle:
     solitary: str | None = "Tree_Blossom"
     tree_count: int | None = None
     grove: float = 0.0
+    thicket: float = 0.0
     tree_spacing: tuple[float, float] = (5.0, 7.0)
     bushes: float = 1.5
     boulders: float = 1.0
@@ -92,6 +95,7 @@ class IslandSpec:
 
     ``diameter`` in Metern (10–100). ``depth_ratio`` ist die Tiefe der Felsunterseite relativ
     zum Durchmesser. ``pond`` legt einen Teich an, ``stream`` einen Bach vom Teich zum Rand mit
+    Wasserfall, ``springs`` Quellen in der Felswand unter dem Erdband, jede mit eigenem
     Wasserfall. ``biome`` wählt Palette und Bepflanzungsregeln (``rot``: verrottete
     Fliegennest-Insel). ``barren`` (0–1) vergrößert die kahlen Erd- und Kiesflächen auf dem
     Plateau. ``texel_size`` ist die Kantenlänge eines Texels der Inseltextur in Metern,
@@ -104,6 +108,7 @@ class IslandSpec:
     depth_ratio: float = 0.75
     pond: bool = True
     stream: bool = True
+    springs: int = 0
     biome: Biome = "meadow"
     barren: float = 0.0
     shape: ShapeStyle = field(default_factory=ShapeStyle)

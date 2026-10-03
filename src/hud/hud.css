@@ -1,6 +1,7 @@
 /* src/hud/hud.css — Oberfläche im Bilderbuchstil: Creme, Honig, Bernstein, Blattgrün, Himmelblau und Blütenrosa;
    runde Formen mit kräftigen weichen Konturen, Aufkleber-Schatten und federnde Bewegungen beim Drücken.
-   Alle Maße hängen an --u (eine HUD-Einheit), damit die Oberfläche von 1280×720 bis 4K mitwächst. */
+   Alle Maße hängen an --u (eine HUD-Einheit), damit die Oberfläche von 1280×720 bis 4K mitwächst; die
+   Einstellung „UI scale“ wirkt als Faktor --ui-scale auf --u. */
 
 @font-face {
   font-family: "Fredoka";
@@ -18,8 +19,10 @@
 }
 
 .hud {
-  /* Eine Einheit: wächst mit der Bildhöhe, bleibt bei schmalen Fenstern durch die Breite begrenzt */
-  --u: clamp(13px, min(calc(7px + 0.95vh), 1.15vw), 32px);
+  /* Eine Einheit: wächst mit der Bildhöhe und mit „UI scale“; die Breite begrenzt sie, damit die Bedienfelder
+     am unteren Rand nebeneinander Platz behalten */
+  --ui-scale: 1;
+  --u: clamp(7px, min(calc(max(11px, 5.6px + 0.82vh) * var(--ui-scale)), 1.08vw), 40px);
   --edge: var(--u);
   --gap: calc(var(--u) * 0.6);
   --line: max(2px, calc(var(--u) * 0.18));
@@ -73,9 +76,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Touch: fingergroße Knöpfe, auch auf schmalen Geräten */
 @media (pointer: coarse) {
   .hud {
-    --u: clamp(14px, min(calc(8px + 1vh), 1.2vw), 32px);
+    --u: clamp(calc(14px * var(--ui-scale)), min(calc((8px + 1vh) * var(--ui-scale)), 1.2vw), calc(32px * var(--ui-scale)));
   }
 }
 
@@ -516,11 +520,6 @@
   gap: calc(var(--u) * 0.2);
   padding: 0 calc(var(--u) * 0.85) 0 calc(var(--u) * 0.25);
   background: var(--paper);
-}
-
-/* Angedockt steht der Honig auf dem Schild der Wabenhalle */
-.mode-docked .honey-counter {
-  display: none;
 }
 
 .honey-counter-icon {
@@ -1098,6 +1097,12 @@
   background: radial-gradient(circle at 38% 30%, #ffffff, var(--pink-light) 55%, var(--pink));
 }
 
+/* Auge eingeschaltet: Die Kamera sieht das ausgewählte Objekt an */
+.ring-petal.is-on {
+  background: radial-gradient(circle at 38% 30%, #ffffff, var(--sky-light) 55%, var(--sky));
+  box-shadow: 0 0 0 calc(var(--u) * 0.14) var(--paper), 0 0 0 calc(var(--u) * 0.28) var(--ink);
+}
+
 /* Abstandsfähnchen außen am Blatt; ein Klick öffnet die Abstandswahl */
 .ring-tag {
   pointer-events: auto;
@@ -1373,6 +1378,52 @@
   flex-direction: column;
   align-items: center;
   translate: -50% 0;
+}
+
+/* Ansehen: Auge und Name über den Zielblasen, daneben der Knopf zurück zur eigenen Biene */
+.look-badge {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.4);
+  max-width: calc(var(--u) * 22);
+  margin-bottom: calc(var(--u) * 0.45);
+  padding: calc(var(--u) * 0.2) calc(var(--u) * 0.2) calc(var(--u) * 0.2) calc(var(--u) * 0.45);
+  border: var(--line) solid var(--ink);
+  border-radius: 99px;
+  background: linear-gradient(180deg, #ffffff, var(--sky-light));
+  box-shadow: var(--shadow-small);
+  animation: pop-in 0.3s var(--spring);
+}
+
+.look-badge-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  min-width: 0;
+}
+
+.look-badge-eye {
+  width: calc(var(--u) * 1.8);
+  height: calc(var(--u) * 1.8);
+}
+
+.look-badge-name {
+  overflow: hidden;
+  font-size: calc(var(--u) * 0.92);
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.look-badge-back {
+  width: calc(var(--u) * 2.3);
+  height: calc(var(--u) * 2.3);
+}
+
+.look-badge-back .icon-btn-icon {
+  width: 80%;
+  height: 80%;
 }
 
 .target-bubbles {
@@ -1665,6 +1716,14 @@
 .stop-btn .icon-btn-icon {
   width: 72%;
   height: 72%;
+}
+
+/* Die Taste steht mittig über dem Stoppschild, damit sie das Schild nicht verdeckt */
+.stop-btn .key-badge {
+  left: 50%;
+  right: auto;
+  top: -0.9em;
+  translate: -50% 0;
 }
 
 /* Tempostiel: der Stiel füllt sich grün mit dem Tempo, der Flügelknopf zeigt das gewählte Tempo */
@@ -2156,141 +2215,84 @@
 
 /* ---------- Wabenhalle (angedockt) ---------- */
 
-.layer-station {
-  display: grid;
-  place-items: center;
-  padding: var(--edge);
-  background: radial-gradient(ellipse at 50% 45%, rgba(255, 210, 120, 0.15), rgba(70, 38, 8, 0.45));
+/* Leiste und Fenster links unter der Bienenplakette; die Bildmitte bleibt frei für die Biene im Hangar */
+.hall {
+  position: absolute;
+  inset: calc(var(--edge) + var(--u) * 8.6) var(--edge) var(--edge);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gap);
 }
 
-/* Breit genug für die Theke, schmal genug, um Bienenplakette und Notizen frei zu lassen */
-.hall {
+/* Schmale Wabenleiste: Wappen, ein Wabenknopf je Seite, Heimatstock und Abdocken */
+.hall-bar {
   pointer-events: auto;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(100%, max(calc(100% - var(--u) * 37), calc(var(--u) * 46)), calc(var(--u) * 58));
-  height: min(100%, calc(var(--u) * 44));
-  overflow: hidden;
-  border: calc(var(--line) * 1.5) solid var(--ink);
-  border-radius: calc(var(--u) * 2);
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 0.35);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: calc(var(--u) * 0.55) calc(var(--u) * 0.45);
+  border: calc(var(--line) * 1.2) solid var(--ink);
+  border-radius: calc(var(--u) * 1.8);
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27.71' height='48' viewBox='0 0 27.71 48'%3E%3Cpath d='M0 8L13.86 0L27.71 8M0 8V24M27.71 8V24M0 24L13.86 32L27.71 24M13.86 32V48' fill='none' stroke='%23c47d14' stroke-opacity='.35' stroke-width='1.4'/%3E%3C/svg%3E") center top / calc(var(--u) * 2.6) calc(var(--u) * 4.5) repeat,
     linear-gradient(180deg, #ffd56a, #f2a531);
-  box-shadow: 0 calc(var(--u) * 0.4) 0 rgba(91, 58, 30, 0.45), 0 calc(var(--u) * 1.6) calc(var(--u) * 4) rgba(40, 20, 5, 0.4);
-  animation: pop-in 0.45s var(--spring);
+  box-shadow: var(--shadow);
+  scrollbar-width: none;
+  animation: pop-in 0.35s var(--spring);
 }
 
-/* Holzschild mit Nägeln */
-.hall-sign {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 0.8);
-  padding: calc(var(--u) * 0.7) calc(var(--u) * 1.4);
-  border-bottom: calc(var(--line) * 1.3) solid var(--ink);
-  background: repeating-linear-gradient(178deg, #b97a40 0 calc(var(--u) * 0.9), #c98a4b calc(var(--u) * 0.9) calc(var(--u) * 1.8));
-  color: #fff8e6;
-}
-
-.hall-sign::before,
-.hall-sign::after {
-  content: "";
-  position: absolute;
-  top: calc(var(--u) * 0.45);
-  width: calc(var(--u) * 0.55);
-  height: calc(var(--u) * 0.55);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #e8d5bd, #8a6a4c);
-  box-shadow: 0 0 0 max(1px, calc(var(--u) * 0.08)) var(--ink);
-}
-
-.hall-sign::before { left: calc(var(--u) * 0.5); }
-.hall-sign::after { right: calc(var(--u) * 0.5); }
-
+/* Wappen des Stocks auf Holz; am Heimatstock mit Häuschen */
 .hall-crest {
-  width: calc(var(--u) * 3.6);
-  height: calc(var(--u) * 3.6);
-  filter: drop-shadow(0 calc(var(--u) * 0.15) 0 rgba(60, 30, 5, 0.5));
-}
-
-.hall-titles {
-  flex: 1;
-  min-width: 0;
-}
-
-.hall-name {
-  margin: 0;
-  overflow: hidden;
-  font-size: calc(var(--u) * 1.9);
-  font-weight: 700;
-  line-height: 1.05;
-  text-shadow: 0 calc(var(--u) * 0.14) 0 rgba(70, 40, 15, 0.7);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.hall-sub {
-  display: flex;
-  align-items: center;
-  gap: calc(var(--u) * 0.5);
-  margin-top: calc(var(--u) * 0.25);
-}
-
-.hall-home,
-.hall-balance,
-.hall-wallet {
   pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-  padding: 0.08em 0.6em 0.08em 0.25em;
-  border: max(1.5px, calc(var(--u) * 0.13)) solid var(--ink);
-  border-radius: 99px;
-  background: var(--paper);
-  color: var(--text);
-  font-size: calc(var(--u) * 0.82);
-  font-weight: 700;
-}
-
-.hall-home-icon,
-.hall-balance-icon {
-  width: calc(var(--u) * 1.35);
-  height: calc(var(--u) * 1.35);
-}
-
-.hall-wallet {
-  padding: 0.15em 0.8em 0.15em 0.3em;
-  font-size: calc(var(--u) * 1.3);
-}
-
-.hall-wallet-icon {
-  width: calc(var(--u) * 2.2);
-  height: calc(var(--u) * 2.2);
-}
-
-.hall-wallet-value {
-  color: var(--amber);
-}
-
-.hall-main {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: 0;
+  flex: none;
+  place-items: center;
+  width: calc(var(--u) * 3);
+  height: calc(var(--u) * 3);
+  border: var(--line) solid var(--ink);
+  border-radius: 50%;
+  background: repeating-linear-gradient(178deg, #b97a40 0 calc(var(--u) * 0.6), #c98a4b calc(var(--u) * 0.6) calc(var(--u) * 1.2));
+  box-shadow: var(--shadow-small);
 }
 
-.hall-tabs {
+.hall-crest-icon {
+  width: 74%;
+  height: 74%;
+}
+
+.hall-crest-home {
+  position: absolute;
+  right: calc(var(--u) * -0.5);
+  bottom: calc(var(--u) * -0.35);
+  display: none;
+  width: calc(var(--u) * 1.5);
+  height: calc(var(--u) * 1.5);
+}
+
+.hall-crest.is-home .hall-crest-home {
+  display: block;
+}
+
+.hall-bar-pages {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 0.15);
-  padding: calc(var(--u) * 0.7) calc(var(--u) * 0.55);
-  border-right: calc(var(--line) * 1.1) solid var(--ink);
-  background: rgba(255, 245, 220, 0.35);
+  align-items: center;
+  gap: calc(var(--u) * 0.12);
+  padding: calc(var(--u) * 0.35) 0;
+  border-top: 2px dashed rgba(91, 58, 30, 0.4);
+  border-bottom: 2px dashed rgba(91, 58, 30, 0.4);
 }
 
-/* Waben-Reiter: äußere Wabe = Kontur, innere Wabe = Wachs */
+/* Wabenknopf: äußere Wabe = Kontur, innere Wabe = Wachs; der Knopf des offenen Fensters rückt zum Fenster hin */
 .hall-tab {
-  width: calc(var(--u) * 3.5);
-  height: calc(var(--u) * 4.04);
+  flex: none;
+  width: calc(var(--u) * 3.1);
+  height: calc(var(--u) * 3.58);
   background: var(--ink);
   clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 }
@@ -2315,93 +2317,206 @@
 }
 
 .hall-tab.is-current::before {
-  background: radial-gradient(circle at 50% 35%, #ffffff, var(--honey-light) 70%);
+  background: radial-gradient(circle at 50% 35%, #ffffff, var(--sky-light) 70%);
 }
 
 .hall-tab.is-current {
-  transform: translateX(calc(var(--u) * 0.25)) scale(1.06);
+  transform: translateX(calc(var(--u) * 0.3)) scale(1.06);
 }
 
-.hall-page {
+.hall-home-btn {
+  flex: none;
+  width: calc(var(--u) * 2.6);
+  height: calc(var(--u) * 2.6);
+}
+
+/* Schon Heimatstock: honiggelb und ruhig, ein Klick ändert nichts */
+.hall-home-btn.is-home {
+  background: radial-gradient(circle at 38% 30%, #ffffff, var(--honey-light) 55%, var(--honey));
+  cursor: default;
+}
+
+.hall-home-btn.is-home:hover,
+.hall-home-btn.is-home:active {
+  transform: none;
+}
+
+.hall-undock {
+  flex: none;
+  width: calc(var(--u) * 3);
+  height: calc(var(--u) * 3);
+  background: radial-gradient(circle at 38% 30%, #ffffff, var(--sky-light) 55%, var(--sky));
+}
+
+/* Fenster einer Seite neben der Leiste: Holzschild oben, Inhalt darunter, höchstens bis zum unteren Rand */
+.hall-window {
+  pointer-events: auto;
   display: grid;
+  flex: 0 1 calc(var(--u) * 27);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+  border: calc(var(--line) * 1.3) solid var(--ink);
+  border-radius: calc(var(--u) * 1.4);
+  background: var(--paper);
+  box-shadow: 0 calc(var(--u) * 0.3) 0 rgba(91, 58, 30, 0.45), 0 calc(var(--u) * 1.2) calc(var(--u) * 3) rgba(40, 20, 5, 0.35);
+  transform-origin: left top;
+  animation: pop-in 0.3s var(--spring);
+}
+
+.hall-window-sign {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.55);
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 0.55) calc(var(--u) * 0.5) calc(var(--u) * 0.65);
+  border-bottom: calc(var(--line) * 1.2) solid var(--ink);
+  background: repeating-linear-gradient(178deg, #b97a40 0 calc(var(--u) * 0.9), #c98a4b calc(var(--u) * 0.9) calc(var(--u) * 1.8));
+  color: #fff8e6;
+}
+
+.hall-window-crest {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--u) * 2.7);
+  height: calc(var(--u) * 2.7);
+  border: var(--line) solid var(--ink);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #ffffff, var(--honey-light) 70%);
+}
+
+.hall-window-crest-icon {
+  width: 70%;
+  height: 70%;
+}
+
+.hall-window-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.hall-window-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: calc(var(--u) * 1.25);
+  font-weight: 700;
+  line-height: 1.1;
+  text-shadow: 0 calc(var(--u) * 0.1) 0 rgba(70, 40, 15, 0.7);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hall-window-sub {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.35);
+  min-width: 0;
+  margin-top: calc(var(--u) * 0.15);
+}
+
+.hall-window-hive {
+  overflow: hidden;
+  font-size: calc(var(--u) * 0.8);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hall-home,
+.hall-balance {
+  pointer-events: auto;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.04em 0.55em 0.04em 0.2em;
+  border: max(1.5px, calc(var(--u) * 0.12)) solid var(--ink);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--text);
+  font-size: calc(var(--u) * 0.76);
+  font-weight: 700;
+}
+
+.hall-home {
+  padding-right: 0.2em;
+}
+
+.hall-home-icon,
+.hall-balance-icon {
+  width: calc(var(--u) * 1.15);
+  height: calc(var(--u) * 1.15);
+}
+
+.hall-window-close {
+  align-self: flex-start;
+  flex: none;
+  width: calc(var(--u) * 1.9);
+  height: calc(var(--u) * 1.9);
+  border: max(1.5px, calc(var(--u) * 0.13)) solid var(--ink);
+  border-radius: 50%;
+  background: var(--cream);
+}
+
+.hall-window-close:hover {
+  transform: rotate(90deg);
+}
+
+.hall-window-close .icon-btn-icon {
+  width: 55%;
+  height: 55%;
+}
+
+.hall-window-body {
   overflow-y: auto;
-  padding: calc(var(--u) * 1) calc(var(--u) * 1.2);
-  background: rgba(255, 250, 240, 0.9);
+  padding: calc(var(--u) * 0.8) calc(var(--u) * 0.9) calc(var(--u) * 0.9);
   scrollbar-color: var(--amber) transparent;
   scrollbar-width: thin;
 }
 
-.hall-page-body {
-  min-height: 100%;
-}
-
-.hall-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: calc(var(--u) * 0.8);
-  padding: calc(var(--u) * 0.6) calc(var(--u) * 1.2);
-  border-top: calc(var(--line) * 1.1) solid var(--ink);
-  background: rgba(255, 245, 220, 0.45);
-}
-
-.hall-home-btn {
-  margin-right: auto;
-  width: calc(var(--u) * 3.4);
-  height: calc(var(--u) * 3.4);
-}
-
-.hall-undock {
-  background: radial-gradient(circle at 38% 30%, #ffffff, var(--sky-light) 55%, var(--sky));
-}
-
 .hall-note {
-  margin: calc(var(--u) * 0.8) 0 0;
+  margin: calc(var(--u) * 0.6) 0 0;
   color: var(--text-dim);
-  font-size: calc(var(--u) * 0.86);
+  font-size: calc(var(--u) * 0.84);
   text-align: center;
 }
 
-/* Abliefern und Heilen: eine Theke in der Mitte */
+/* Abliefern und Heilen: eine kleine Theke */
 .deposit-page,
 .heal-page {
   display: grid;
-  align-content: center;
   justify-items: center;
-  gap: calc(var(--u) * 1);
+  gap: calc(var(--u) * 0.9);
 }
 
-.deposit-page {
-  gap: calc(var(--u) * 1.5);
-}
-
-/* Theke zum Abliefern: große Symbole füllen die Seite */
+/* Theke zum Abliefern: Pollen, Goldpollen und der Honig, den es dafür gibt */
 .deposit-counter {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 1.35);
+  gap: calc(var(--u) * 0.55);
 }
 
 .deposit-item {
   pointer-events: auto;
   display: grid;
   justify-items: center;
-  gap: calc(var(--u) * 0.25);
-  min-width: calc(var(--u) * 9);
-  padding: calc(var(--u) * 1.05) calc(var(--u) * 1.2);
+  gap: calc(var(--u) * 0.2);
+  min-width: calc(var(--u) * 5.4);
+  padding: calc(var(--u) * 0.55) calc(var(--u) * 0.5);
   border: var(--line) solid var(--ink);
-  border-radius: calc(var(--radius) * 1.4);
+  border-radius: var(--radius);
   background: var(--cream);
   box-shadow: var(--shadow-small);
 }
 
 .deposit-item-icon {
-  width: calc(var(--u) * 5.4);
-  height: calc(var(--u) * 5.4);
+  width: calc(var(--u) * 3);
+  height: calc(var(--u) * 3);
 }
 
 .deposit-item-value {
-  font-size: calc(var(--u) * 2.7);
+  font-size: calc(var(--u) * 1.5);
   font-weight: 700;
   line-height: 1;
 }
@@ -2412,26 +2527,26 @@
 
 .deposit-item.is-result .deposit-item-value {
   color: var(--amber);
-  font-size: calc(var(--u) * 3.4);
+  font-size: calc(var(--u) * 1.8);
 }
 
 .deposit-arrow {
-  width: calc(var(--u) * 4.2);
-  height: calc(var(--u) * 4.2);
+  width: calc(var(--u) * 2.2);
+  height: calc(var(--u) * 2.2);
 }
 
 .deposit-btn,
 .heal-btn {
-  width: calc(var(--u) * 5);
-  height: calc(var(--u) * 5);
+  width: calc(var(--u) * 4.2);
+  height: calc(var(--u) * 4.2);
   background: radial-gradient(circle at 38% 30%, #ffffff, var(--honey-light) 55%, var(--honey));
   animation: hop 2s ease-in-out infinite;
 }
 
 .deposit-btn {
-  width: calc(var(--u) * 7.5);
-  height: calc(var(--u) * 7.5);
-  border-width: calc(var(--line) * 1.4);
+  width: calc(var(--u) * 4.8);
+  height: calc(var(--u) * 4.8);
+  border-width: calc(var(--line) * 1.3);
 }
 
 .deposit-btn:disabled,
@@ -2739,18 +2854,18 @@
 
 .heal-heart {
   grid-row: span 2;
-  width: calc(var(--u) * 4);
-  height: calc(var(--u) * 4);
+  width: calc(var(--u) * 3);
+  height: calc(var(--u) * 3);
   animation: heartbeat 1.4s ease-in-out infinite;
 }
 
 .heal-values {
-  font-size: calc(var(--u) * 1.1);
+  font-size: calc(var(--u) * 1);
   font-weight: 600;
 }
 
 .heal-hp {
-  font-size: calc(var(--u) * 2);
+  font-size: calc(var(--u) * 1.6);
   font-weight: 700;
 }
 
@@ -2788,13 +2903,13 @@
   border: var(--line) solid var(--ink);
   border-radius: 99px;
   background: var(--paper);
-  font-size: calc(var(--u) * 1.2);
+  font-size: calc(var(--u) * 1);
   font-weight: 700;
 }
 
 .heal-offer-icon {
-  width: calc(var(--u) * 2);
-  height: calc(var(--u) * 2);
+  width: calc(var(--u) * 1.6);
+  height: calc(var(--u) * 1.6);
 }
 
 .heal-btn {
@@ -3636,14 +3751,17 @@
 
 /* ---------- Blütenkranz-Menü und Tooltip ---------- */
 
+/* Maße kommen aus dem Skript in HUD-Einheiten: Radius des Kranzes, freier Innenkreis und halbe Außenmaße */
 .petal-menu {
-  --r: calc(var(--u) * 4.4);
+  --wreath-radius: 4.6;
+  --wreath-inner: 2.75;
+  --wreath-extent: 7.5;
   --petal: calc(var(--u) * 3);
   position: absolute;
   left: 0;
   top: 0;
-  width: calc(var(--r) * 2 + var(--petal) + var(--u) * 1.6);
-  height: calc(var(--r) * 2 + var(--petal) + var(--u) * 1.6);
+  width: calc(var(--wreath-extent) * var(--u) * 2);
+  height: calc(var(--wreath-extent) * var(--u) * 2);
   pointer-events: none;
 }
 
@@ -3652,15 +3770,16 @@
   inset: 0;
 }
 
+/* Beschriftung in der Mitte: höchstens zwei Zeilen und nie breiter als der freie Innenkreis */
 .petal-center {
   pointer-events: auto;
   position: absolute;
   left: 50%;
   top: 50%;
-  max-width: calc(var(--r) * 1.45);
+  max-width: calc(var(--wreath-inner) * var(--u) * 1.7);
   padding: 0.3em 0.7em;
   border: var(--line) solid var(--ink);
-  border-radius: 99px;
+  border-radius: calc(var(--u) * 1.2);
   background: var(--honey-light);
   box-shadow: var(--shadow-small);
   font-size: calc(var(--u) * 0.8);
@@ -3669,6 +3788,19 @@
   text-align: center;
   translate: -50% -50%;
   animation: pop-in 0.3s var(--spring);
+}
+
+.petal-center-text {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.petal-center:has(.petal-center-text:empty) {
+  display: none;
 }
 
 .petal {
@@ -3687,7 +3819,7 @@
   background: radial-gradient(circle at 38% 30%, #ffffff, var(--pink-light) 75%);
   box-shadow: var(--shadow-small);
   cursor: pointer;
-  transform: rotate(var(--angle)) translateY(calc(var(--r) * -1)) rotate(calc(var(--angle) * -1));
+  transform: rotate(var(--angle)) translateY(calc(var(--wreath-radius) * var(--u) * -1)) rotate(calc(var(--angle) * -1));
   animation: bloom 0.4s var(--spring) both;
   animation-delay: var(--delay);
   transition: scale 0.18s var(--spring);
@@ -3704,7 +3836,7 @@
   opacity: 0.5;
 }
 
-/* Auswahl: das Blatt des geltenden Werts ist honiggelb und doppelt umrandet */
+/* Geltender Wert einer Auswahl oder eingeschalteter Eintrag: honiggelb und doppelt umrandet */
 .petal.is-current {
   background: radial-gradient(circle at 38% 30%, #ffffff, var(--honey-light) 55%, var(--honey));
   box-shadow: 0 0 0 calc(var(--u) * 0.16) var(--paper), 0 0 0 calc(var(--u) * 0.32) var(--ink);
@@ -3715,18 +3847,21 @@
   height: 62%;
 }
 
+/* Abstandsfähnchen außen am Blatt, in Richtung des Blatts um --chip HUD-Einheiten aus der Blattmitte gerückt */
 .petal-detail {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--u) * -0.75);
-  padding: 0 0.4em;
+  top: 50%;
+  padding: 0.04em 0.45em;
   border: max(1.5px, calc(var(--u) * 0.11)) solid var(--ink);
   border-radius: 99px;
   background: var(--honey);
   font-size: calc(var(--u) * 0.8);
   font-weight: 700;
+  line-height: 1.25;
   white-space: nowrap;
-  translate: -50% 0;
+  transform: rotate(var(--angle)) translateY(calc(var(--chip, 2.4) * var(--u) * -1)) rotate(calc(var(--angle) * -1));
+  translate: -50% -50%;
 }
 
 .tooltip {

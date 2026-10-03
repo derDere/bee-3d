@@ -22,7 +22,7 @@ export class HealPage implements StationPage {
   private tier = "";
 
   public constructor(actions: HudActions) {
-    this.element = createElement("div", "hall-page-body heal-page");
+    this.element = createElement("div", "heal-page");
     this.meter = createElement("div", "heal-meter", this.element);
     createIcon("heart", "heal-heart", this.meter);
     const values = createElement("div", "heal-values", this.meter);

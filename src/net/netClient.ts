@@ -80,6 +80,8 @@ export class NetClient {
   private attachment: Attachment | undefined;
   private correction: BeeState | undefined;
   private spawned = false;
+  /** Ob in dieser Sitzung schon einmal eine Verbindung stand (Verbindungsabbruch vs. Erkundungsmodus). */
+  private everConnected = false;
   private correctionCount = 0;
   private lastCorrectionMeters = 0;
 
@@ -292,6 +294,7 @@ export class NetClient {
       ownRowSubscribed: false,
     };
     this.attachment = attachment;
+    this.everConnected = true;
     this.replica.attach(connection, identity);
     // Kleine, öffentliche Tabellen vollständig; private Werte über die Views des Aufrufers
     connection
@@ -307,9 +310,17 @@ export class NetClient {
 
   private sendJoin(connection: DbConnection, name: string): void {
     this.setStatus("joining");
-    connection.reducers.join({ name }).catch((error: unknown) => {
-      this.hooks.onRejected("join", error instanceof Error ? error.message : String(error));
-    });
+    connection.reducers.join({ name }).then(
+      () => {
+        // Stand die eigene Zeile schon vor dem Beitritt fest (wiederkehrende Biene), gilt sie mit der Bestätigung als online
+        if (this.spawned && connection === this.attachment?.connection) {
+          this.setStatus("online");
+        }
+      },
+      (error: unknown) => {
+        this.hooks.onRejected("join", error instanceof Error ? error.message : String(error));
+      },
+    );
   }
 
   /** Eigene Spieler-ID bekannt: eigene Zeile per Primärschlüssel abonnieren, unabhängig von den Zellen. */
@@ -337,7 +348,8 @@ export class NetClient {
   private handleLost(): void {
     this.detach();
     if (this.status !== "reload-required" && this.status !== "offline") {
-      this.setStatus("reconnecting");
+      // Ohne je bestandene Verbindung gilt der Erkundungsmodus; die Sitzung versucht es im Hintergrund weiter.
+      this.setStatus(this.everConnected ? "reconnecting" : "offline");
     }
   }
 

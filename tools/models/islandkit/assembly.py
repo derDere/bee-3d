@@ -13,9 +13,13 @@ Knotenbaum LOD0::
       Water: Pond, Stream, Waterfall, WaterfallMist
       Flora: <Teil>_<Kachel> …, FlowerPatch_<n> …
 
+``Waterfall`` trägt den Wasserkörper aller Fälle (``Island_Waterfall``, Alpha-Test mit der Schwelle
+der Tiefenkarte des Spiels), ``WaterfallMist`` Zerstäubung, Schleier und Sprühwolken
+(``Island_Spray``, Blend).
+
 LOD1: ``Island_<Name>`` → ``Terrain``, ``Detail`` (vereinfachte Bäume, Büsche, Brocken,
-Wurzeln mit Vertexfarben), ``Water`` (``Pond``, ``Stream``, ``Waterfall``).
-LOD2: ``Island_<Name>`` → ``Silhouette`` (Körper und Kronen mit Vertexfarben).
+Wurzeln und Wasserfälle mit Vertexfarben), ``Water`` (``Pond``, ``Stream``).
+LOD2: ``Island_<Name>`` → ``Silhouette`` (Körper, Kronen und Wasserfälle mit Vertexfarben).
 """
 
 from __future__ import annotations
@@ -32,10 +36,14 @@ from modelkit.sweep import SweptMesh
 
 from islandkit.body import WATER_COLOR, IslandBody, SilhouetteMesh
 from islandkit.texturesets import TextureSet
-from islandkit.water import WaterMesh, WaterTextures
+from islandkit.water import FallTextures, WaterMesh, WaterTextures
 
 type FloatArray = npt.NDArray[np.float64]
 type IndexArray = npt.NDArray[np.int64]
+
+FALL_ALPHA_CUTOFF = 0.4  # Schwelle des Alpha-Tests: dieselbe wie in der Tiefenkarte des Spiels (Babylon DepthRenderer)
+FALL_GLOW = (0.045, 0.05, 0.06)  # Eigenleuchten des Wasserkörpers (linear): im Schatten hell, nachts nur schwach
+SPRAY_GLOW = (0.03, 0.035, 0.04)  # Eigenleuchten der Gischt (linear)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,13 +63,18 @@ class PartPlacement:
 
 @dataclass(frozen=True, slots=True)
 class IslandWater:
-    """Wasserflächen einer Insel (Inselwasser); fehlende Teile sind ``None``."""
+    """Wasserflächen einer Insel (Inselwasser); fehlende Teile sind ``None``.
+
+    ``waterfall`` ist der Wasserkörper aller Fälle, ``spray`` ihre Gischt; beide brauchen
+    ``fall_textures``.
+    """
 
     textures: WaterTextures
+    fall_textures: FallTextures | None = None
     pond: WaterMesh | None = None
     stream: WaterMesh | None = None
     waterfall: WaterMesh | None = None
-    mist: WaterMesh | None = None
+    spray: WaterMesh | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,42 +219,53 @@ def _add_roots(builder: GltfBuilder, roots: SweptMesh, texture: TextureSet, pare
 
 
 def _add_water(builder: GltfBuilder, water: IslandWater, parent: str) -> None:
-    if all(mesh is None for mesh in (water.pond, water.stream, water.waterfall)):
+    if all(mesh is None for mesh in (water.pond, water.stream, water.waterfall, water.spray)):
         return
     builder.add_node("Water", parent=parent)
-    ripple = builder.add_texture("Island_Water_normal", water.textures.ripple_normal, wrap="repeat")
     tint = (*srgb_to_linear(WATER_COLOR), 1.0)
-    # Teich und Bach unterscheiden sich in den Werten: gltf-transform optimize führt gleiche
-    # Materialien zusammen, das Spiel lässt aber nur den Bach fließen
-    if water.pond is not None:
-        builder.add_material(
-            MaterialSpec("Island_Pond", base_color=tint, roughness=0.05, alpha_mode="BLEND", normal_texture=ripple, normal_scale=0.5)
-        )
-    if water.stream is not None:
-        builder.add_material(
-            MaterialSpec("Island_Stream", base_color=tint, roughness=0.09, alpha_mode="BLEND", normal_texture=ripple, normal_scale=0.8)
-        )
-    if water.waterfall is not None:
-        fall_color = builder.add_texture("Island_Waterfall_color", water.textures.fall_color, wrap="repeat")
-        fall_normal = builder.add_texture("Island_Waterfall_normal", water.textures.fall_normal, wrap="repeat")
+    if water.pond is not None or water.stream is not None:
+        ripple = builder.add_texture("Island_Water_normal", water.textures.ripple_normal, wrap="repeat")
+        # Teich und Bach unterscheiden sich in den Werten: gltf-transform optimize führt gleiche
+        # Materialien zusammen, das Spiel lässt aber nur den Bach fließen
+        if water.pond is not None:
+            builder.add_material(
+                MaterialSpec("Island_Pond", base_color=tint, roughness=0.05, alpha_mode="BLEND", normal_texture=ripple, normal_scale=0.5)
+            )
+        if water.stream is not None:
+            builder.add_material(
+                MaterialSpec("Island_Stream", base_color=tint, roughness=0.09, alpha_mode="BLEND", normal_texture=ripple, normal_scale=0.8)
+            )
+    textures = water.fall_textures
+    if water.waterfall is not None and textures is not None:
+        fall_color = builder.add_texture("Island_Waterfall_color", textures.core_color, wrap="repeat")
+        fall_normal = builder.add_texture("Island_Waterfall_normal", textures.core_normal, wrap="repeat")
         builder.add_material(
             MaterialSpec(
                 "Island_Waterfall",
-                roughness=0.2,
-                alpha_mode="BLEND",
+                roughness=0.3,
+                alpha_mode="MASK",
+                alpha_cutoff=FALL_ALPHA_CUTOFF,
                 double_sided=True,
                 base_color_texture=fall_color,
                 normal_texture=fall_normal,
-                normal_scale=0.5,
+                normal_scale=0.6,
+                emissive=FALL_GLOW,
+            )
+        )
+    if water.spray is not None and textures is not None:
+        spray_color = builder.add_texture("Island_Spray_color", textures.spray_color, wrap="repeat")
+        builder.add_material(
+            MaterialSpec(
+                "Island_Spray", roughness=0.9, alpha_mode="BLEND", double_sided=True, base_color_texture=spray_color, emissive=SPRAY_GLOW
             )
         )
     for node, mesh, material in (
         ("Pond", water.pond, "Island_Pond"),
         ("Stream", water.stream, "Island_Stream"),
         ("Waterfall", water.waterfall, "Island_Waterfall"),
-        ("WaterfallMist", water.mist, "Island_Waterfall"),
+        ("WaterfallMist", water.spray, "Island_Spray"),
     ):
-        if mesh is None:
+        if mesh is None or material not in builder.material_names:
             continue
         index = builder.add_mesh(
             node,

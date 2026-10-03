@@ -59,7 +59,7 @@ def grow_roots(terrain: IslandTerrain, seed: int, settings: RootSettings | None 
     count = int(circumference / settings.spacing)
     angles = centers[rng.integers(0, clusters, count)] + rng.normal(0.0, 1.6 * settings.spacing / dims.radius, count)
     heights = -rng.uniform(0.35, 1.15, count) * dims.soil_depth
-    starts = _surface_points(terrain, angles, heights) - 0.12 * _radial(angles)
+    starts = terrain.wall_points(angles, heights) - 0.12 * _radial(angles)
     lengths = settings.max_length * (0.08 + 0.92 * rng.random(count) ** 2.4)
     radii = settings.base_radius * (0.35 + 0.65 * rng.random(count)) * (0.5 + 0.5 * lengths / settings.max_length)
     initial = 0.4 * _radial(angles) + np.array([0.0, -0.9, 0.0])
@@ -92,20 +92,6 @@ def build_coarse_root_mesh(strands: list[RootStrand], base_radius: float) -> Swe
 
 def _radial(angles: FloatArray) -> FloatArray:
     return np.stack([np.cos(angles), np.zeros_like(angles), np.sin(angles)], axis=1)
-
-
-def _surface_points(terrain: IslandTerrain, angles: FloatArray, heights: FloatArray) -> FloatArray:
-    """Schnittpunkte waagrechter Strahlen von außen mit dem Inselkörper (Bisektion entlang des Radius)."""
-    direction = _radial(angles)
-    outer = np.full(len(angles), terrain.dims.radius * 1.6)
-    inner = np.zeros(len(angles))
-    for _ in range(28):
-        middle = 0.5 * (outer + inner)
-        points = direction * middle[:, None] + np.array([0.0, 1.0, 0.0]) * heights[:, None]
-        inside = terrain.distance(points) < 0.0
-        inner = np.where(inside, middle, inner)
-        outer = np.where(inside, outer, middle)
-    return direction * inner[:, None] + np.array([0.0, 1.0, 0.0]) * heights[:, None]
 
 
 def _grow(

@@ -10,10 +10,13 @@ import { SunLatitudeDeg } from "./celestial";
 import { BillboardVertexShader, MoonFragmentShader, StarsFragmentShader, StarsVertexShader, SunFragmentShader } from "./shaders/celestialShaders";
 
 const SkyDistance = 900;
-const SunDiscDegrees = 1.3;
-const MoonDiscDegrees = 3.0;
-/** Fläche des Monds relativ zur Scheibe: Platz für den weichen Hof. */
-const MoonHaloScale = 5;
+/** Scheibendurchmesser (Grad): Sonne und Mond deutlich größer als am echten Himmel, wie in den Zielbildern. */
+const SunDiscDegrees = 2.0;
+const MoonDiscDegrees = 5.0;
+/** Fläche der Sonne relativ zur Scheibe: Platz für Saum und Strahlenkranz. */
+const SunCoronaScale = 14;
+/** Fläche des Monds relativ zur Scheibe: Platz für den Hof. */
+const MoonHaloScale = 4;
 
 /** Zustand der Himmelskörper eines Frames (Himmelskörper-Zustand). */
 export interface CelestialFrame {
@@ -21,6 +24,10 @@ export interface CelestialFrame {
   readonly toMoon: Vector3;
   readonly sunColor: Color3;
   readonly sunIntensity: number;
+  /** Größe der Sonne relativ zur Grundgröße (Scheibe, Saum und Strahlenkranz). */
+  readonly sunScale: number;
+  /** Stärke des Strahlenkranzes um die Sonne (0 = keiner). */
+  readonly sunCorona: number;
   readonly moonIntensity: number;
   /** Stärke des Mondhofs (folgt der Mondhelligkeit). */
   readonly moonGlow: number;
@@ -47,12 +54,12 @@ export class CelestialBodies {
   private readonly spin = new Quaternion();
   private readonly combined = new Quaternion();
   private readonly scratch = new Vector3();
+  private readonly sunParams = new Vector2(1 / SunCoronaScale, 1);
 
   public constructor(scene: Scene) {
-    const sunSize = 2 * SkyDistance * Math.tan(((SunDiscDegrees / 2) * Math.PI) / 180) * 6;
+    const sunSize = 2 * SkyDistance * Math.tan(((SunDiscDegrees / 2) * Math.PI) / 180) * SunCoronaScale;
     this.sun = CreatePlane("sunDisc", { size: sunSize }, scene);
-    this.sunMaterial = this.createBillboardMaterial("sunMaterial", SunFragmentShader, ["sunColor", "discRadius"], scene);
-    this.sunMaterial.setFloat("discRadius", 1 / 6);
+    this.sunMaterial = this.createBillboardMaterial("sunMaterial", SunFragmentShader, ["sunColor", "sunParams"], scene);
     this.configure(this.sun, this.sunMaterial);
 
     const moonSize = 2 * SkyDistance * Math.tan(((MoonDiscDegrees / 2) * Math.PI) / 180) * MoonHaloScale;
@@ -98,8 +105,11 @@ export class CelestialBodies {
 
   public update(frame: CelestialFrame): void {
     frame.toSun.scaleToRef(SkyDistance, this.sun.position);
+    this.sun.scaling.setAll(frame.sunScale);
     this.sun.setEnabled(frame.toSun.y > -0.12);
     this.sunMaterial.setColor3("sunColor", frame.sunColor.scale(frame.sunIntensity));
+    this.sunParams.y = frame.sunCorona;
+    this.sunMaterial.setVector2("sunParams", this.sunParams);
 
     frame.toMoon.scaleToRef(SkyDistance, this.moon.position);
     this.moon.setEnabled(frame.toMoon.y > -0.1 && frame.moonIntensity > 0.001);

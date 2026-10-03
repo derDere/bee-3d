@@ -49,11 +49,11 @@ uniform vec4 lightningParams;  // Position, Stärke
 uniform vec3 lightningColor;
 uniform vec4 clearings[CLEARING_COUNT]; // Lichtungen: Mittelpunkt, Radius (m)
 uniform float clearingCount;
-uniform vec4 seaParams;        // Höhe der Wolkenmeer-Ebene (Welt-y, m), Relief der Kuppen (m), Blickwinkel je Texel (rad), unbenutzt
+uniform vec4 seaParams;        // Wolkenmeer-Ebene (Welt-y, m), Relief der Kuppen (m), Blickwinkel je Texel (rad), unbenutzt
 uniform vec4 rainbowParams;    // Stärke 0..1, Entfernung des Regenvorhangs (m), unbenutzt, unbenutzt
 
 const float PI = 3.14159265;
-// Wolkenmeer im Fernfeld: Kachel der Kuppen auf der Wetterkarte (m), Drift relativ zur Massendrift, Reichweite der
+// Wolkenmeer im Fernfeld: Kachel der Kuppen im Formrauschen (m), Drift relativ zur Massendrift, Reichweite der
 // Schattenprobe zur Lichtquelle (m), Schritte durch die Kuppenschicht und Halbierungen am Schnittpunkt.
 const float SEA_TILE = 6000.0;
 const float SEA_DRIFT = 0.6;
@@ -64,16 +64,18 @@ const int SEA_REFINE_STEPS = 2;
 const float SEA_CELL_SCALE = 0.33;
 // Luftperspektive des Wolkenmeers: Entfernungsfaktor (< 1: die Kuppen bleiben bis weit zum Horizont plastisch).
 const float SEA_HAZE_SCALE = 0.5;
-// Hülle über dem Horizont: Höhe (Anteil y / Radius), ab der sie offen ist; Breite des Dunstbands über dem Horizont
-// (Anteil y der Blickrichtung).
+// Hülle über dem Horizont: Höhe (Anteil y / Radius), ab der sie offen ist.
 const float HULL_OPEN_Y = 0.25;
 // Obergrenze des Streuwinkel-Kosinus für die Hüllmassen: keine Vorwärtsspitze auf den flachen Massen.
 const float HULL_PHASE_LIMIT = 0.6;
+// Obergrenze des Streuwinkel-Kosinus für Nebel: Nebelschleier im Gegenlicht leuchten weich, ohne die Bildmitte zu
+// überstrahlen; Wolken behalten ihre Vorwärtsspitze (Silberränder).
+const float MIST_PHASE_LIMIT = 0.6;
+// Dunstband am Horizont: halbe Breite (Anteil y der Blickrichtung) und Dichte relativ zur Dunststärke.
 const float HORIZON_BAND = 0.07;
+const float HORIZON_HAZE = 1.35;
 // Leuchten des Dunsts zur Lichtquelle hin, relativ zum Licht.
 const float HAZE_GLOW = 0.2;
-// Dichte des Dunstbands am Horizont relativ zur Dunststärke.
-const float HORIZON_HAZE = 1.35;
 // Regenbogen: Hauptbogen innen violett (40,6°) bis außen rot (42,4°), Nebenbogen innen rot (50,1°) bis außen violett
 // (53,6°) mit einem Drittel der Helligkeit; Helligkeit relativ zum Sonnenlicht.
 const float BOW_INNER = 40.6;
@@ -270,7 +272,8 @@ vec3 hazeTint(float mu) {
 float seaHeight(vec2 xz, float footprint) {
   vec2 uv = xz / SEA_TILE + massOffset.xz * SEA_DRIFT;
   float nearWeight = 1.0 - smoothstep(1.5, 4.0, footprint / (SEA_TILE / 128.0));
-  float cells = textureLod(weatherSampler, uv * SEA_CELL_SCALE, log2(max(footprint * SEA_CELL_SCALE * 512.0 / SEA_TILE, 1.0))).g;
+  float cellLod = log2(max(footprint * SEA_CELL_SCALE * 512.0 / SEA_TILE, 1.0));
+  float cells = textureLod(weatherSampler, uv * SEA_CELL_SCALE, cellLod).g;
   float far = mix(0.5, smoothstep(0.15, 0.95, cells), 0.6);
   if (nearWeight <= 0.0) return far;
   float billows = smoothstep(0.2, 0.9, textureLod(shapeSampler, vec3(uv.x, 0.37, uv.y), 0.0).r);
@@ -282,7 +285,6 @@ float seaHeight(vec2 xz, float footprint) {
 // die hinteren. Normalen aus dem Gradienten des Höhenfelds und Schatten benachbarter Kuppen bei tiefem Licht ergeben
 // helle Kuppen zur Lichtquelle und himmelblau getönte Täler. Ergebnis: Strahlung mit Luftperspektive, deckend.
 vec3 cloudSea(vec3 dir, float mu) {
-  if (dir.y < 10.0) return hazeTint(mu);
   float slope = max(-dir.y, 1e-4);
   float relief = seaParams.y;
   // Bei streifendem Blick reichen die Schritte nicht für einzelne Kuppen: dort bleibt nur die Schattierung
@@ -341,7 +343,8 @@ vec4 hullMasses(vec3 dir, float hullT, float mu) {
   vec3 coordinate = normal * 1.8 + massOffset * 0.25;
   float masses = textureLod(shapeSampler, coordinate, 0.0).r * 0.75 + textureLod(shapeSampler, coordinate * 2.7 + 0.13, 0.0).r * 0.25;
   float lowLight = 1.0 - smoothstep(0.12, 0.35, toLight.y);
-  float openness = boundaryParams.w * max(smoothstep(-0.02, HULL_OPEN_Y, normal.y), smoothstep(0.96, 0.998, mu) * lowLight) * (1.0 - stormParams.x * 0.6);
+  float window = smoothstep(0.96, 0.998, mu) * lowLight;
+  float openness = boundaryParams.w * max(smoothstep(-0.02, HULL_OPEN_Y, normal.y), window) * (1.0 - stormParams.x * 0.6);
   float thickness = saturate1((masses - openness) / 0.3);
   float opacity = 1.0 - exp(-thickness * 7.0);
   vec3 light = keyLightRadiance(mix(0.4, 3.2, thickness), min(mu, HULL_PHASE_LIMIT)) * noiseParams.w * 0.9
@@ -377,9 +380,11 @@ vec3 rainbowRadiance(vec3 dir) {
   float primaryWeight = smoothstep(-0.35, 0.12, primary) * (1.0 - smoothstep(0.88, 1.3, primary));
   float secondary = (SECONDARY_INNER + SECONDARY_WIDTH - angle) / SECONDARY_WIDTH;
   float secondaryWeight = smoothstep(-0.25, 0.12, secondary) * (1.0 - smoothstep(0.88, 1.25, secondary)) * 0.33;
-  float inner = smoothstep(BOW_INNER - 12.0, BOW_INNER, angle) * (1.0 - smoothstep(BOW_INNER, BOW_INNER + 0.4, angle)) * 0.06;
+  float inner = smoothstep(BOW_INNER - 12.0, BOW_INNER, angle) * (1.0 - smoothstep(BOW_INNER, BOW_INNER + 0.4, angle));
   // Die Spektralfarben überlagern sich in echten Regenbögen: etwas Weiß nimmt ihnen die Härte
-  vec3 bow = mix(vec3(0.4), spectrum(primary), 0.75) * primaryWeight + mix(vec3(0.4), spectrum(secondary), 0.75) * secondaryWeight + vec3(inner);
+  vec3 bow = mix(vec3(0.4), spectrum(primary), 0.75) * primaryWeight
+    + mix(vec3(0.4), spectrum(secondary), 0.75) * secondaryWeight
+    + vec3(inner * 0.06);
   return bow * lightColor * (BOW_GAIN * rainbowParams.x);
 }
 
@@ -479,7 +484,8 @@ void main(void) {
       dt *= cloudPart > 0.05 ? 0.65 : 1.0;
       float sigma = density * noiseParams.z;
       float tauLight = lightOpticalDepth(p, transmittance < 0.85 || cloudPart < 0.12);
-      vec3 key = keyLightRadiance(tauLight, mu);
+      float mistShare = 1.0 - cloudPart / max(density, 1e-6);
+      vec3 key = keyLightRadiance(tauLight, mix(mu, min(mu, MIST_PHASE_LIMIT), mistShare));
       // Powder: frontal beleuchtete Ränder dunkler, Gegenlicht leuchtend
       float powder = mix(1.0, 1.0 - exp(-2.0 * sigma * 6.0), phaseParams.w * (0.5 - 0.5 * mu));
       // Himmelslicht von oben, von Wolken darüber verdeckt; von unten das Streulicht tieferer Wolken

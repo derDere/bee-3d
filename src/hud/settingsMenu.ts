@@ -1,5 +1,5 @@
-// src/hud/settingsMenu.ts — Menü (Esc): Grafik, Lautstärke, Musik, Maus invertieren, weniger Blitze,
-// Tastenhilfe und die Steuerungshilfe; Weiterspielen über den runden Knopf.
+// src/hud/settingsMenu.ts — Menü (Esc): Grafik, Größe der Oberfläche, Lautstärke, Musik, Maus invertieren,
+// weniger Blitze, Tastenhilfe und die Steuerungshilfe; Weiterspielen über den runden Knopf.
 
 import { ControlSections, type ControlSection } from "./controlsReference";
 import { createElement, setHint, setVisible, TextSlot } from "./dom";
@@ -7,6 +7,7 @@ import { formatPercent } from "./format";
 import type { HudActions, HudSettings } from "./hudTypes";
 import { createIconButton } from "./iconButton";
 import { createIcon, type IconName } from "./icons";
+import { normalizeUiScale, UiScaleMax, UiScaleMin, UiScaleStep } from "./uiScale";
 
 /** Qualitätswahl des Menüs (Qualitätsstufe). */
 export type QualityChoice = HudSettings["quality"];
@@ -25,6 +26,8 @@ export interface SettingsMenuHost {
   close(): void;
   /** Meldet Darstellungswerte, auf die die Oberfläche selbst reagiert. */
   applyDisplay(quality: QualityChoice, reduceFlashes: boolean): void;
+  /** Wendet die Größe der Oberfläche sofort an (Faktor, 1 = Grundgröße). */
+  applyUiScale(scale: number): void;
 }
 
 type MenuPage = "settings" | "controls";
@@ -44,6 +47,8 @@ export class SettingsMenu {
   private readonly music: HTMLInputElement;
   private readonly masterValue: TextSlot;
   private readonly musicValue: TextSlot;
+  private readonly scale: HTMLInputElement;
+  private readonly scaleValue: TextSlot;
   private readonly helpToggle: HTMLInputElement;
   private readonly pageButtons: HTMLButtonElement[] = [];
   private readonly pages: Readonly<Record<MenuPage, HTMLElement>>;
@@ -64,6 +69,19 @@ export class SettingsMenu {
     this.masterValue.set(formatPercent(master));
     this.musicValue.set(formatPercent(music));
     this.actions.setVolume(master, music);
+  };
+
+  /** Während des Ziehens zeigt der Regler nur die Stufe an; die Oberfläche selbst bleibt so ruhig unter dem Zeiger. */
+  private readonly onScaleInput = (): void => {
+    this.scaleValue.set(`${this.scale.value}%`);
+  };
+
+  /** Beim Loslassen (bzw. je Pfeiltaste) wirkt die Stufe sofort und wird gespeichert. */
+  private readonly onScaleChange = (): void => {
+    const scale = normalizeUiScale(Number(this.scale.value) / 100);
+    this.scaleValue.set(`${Math.round(scale * 100)}%`);
+    this.host.applyUiScale(scale);
+    this.actions.setUiScale(scale);
   };
 
   public constructor(parent: HTMLElement, settings: HudSettings, actions: HudActions, host: SettingsMenuHost) {
@@ -108,6 +126,7 @@ export class SettingsMenu {
       input.addEventListener("change", () => this.chooseQuality(option.value));
       createElement("span", "segment-face", label).appendChild(createIcon(option.icon, "segment-icon"));
     }
+    [this.scale, this.scaleValue] = this.scaleSlider(this.row(settingsPage, "lens", "UI scale"), normalizeUiScale(settings.uiScale));
     [this.master, this.masterValue] = this.slider(this.row(settingsPage, "speaker", "Sound"), "hud-volume", "Sound volume", settings.masterVolume);
     [this.music, this.musicValue] = this.slider(this.row(settingsPage, "music", "Music"), "hud-music", "Music volume", settings.musicVolume);
     this.toggle(this.row(settingsPage, "mouseInvert", "Invert mouse"), "hud-invert-y", "Turn the camera up and down the other way", settings.invertY, (on) =>
@@ -144,6 +163,8 @@ export class SettingsMenu {
 
   public dispose(): void {
     this.element.removeEventListener("click", this.onBackdrop);
+    this.scale.removeEventListener("input", this.onScaleInput);
+    this.scale.removeEventListener("change", this.onScaleChange);
     this.element.remove();
   }
 
@@ -192,6 +213,23 @@ export class SettingsMenu {
     input.addEventListener("input", this.onVolume);
     const display = new TextSlot(createElement("span", "slider-value", parent));
     display.set(formatPercent(value));
+    return [input, display];
+  }
+
+  /** Regler für die Größe der Oberfläche in 10-%-Stufen mit Wertanzeige. */
+  private scaleSlider(parent: HTMLElement, scale: number): [HTMLInputElement, TextSlot] {
+    const input = createElement("input", "slider", parent);
+    input.type = "range";
+    input.name = "hud-ui-scale";
+    input.min = String(Math.round(UiScaleMin * 100));
+    input.max = String(Math.round(UiScaleMax * 100));
+    input.step = String(Math.round(UiScaleStep * 100));
+    input.value = String(Math.round(scale * 100));
+    input.setAttribute("aria-label", "UI scale");
+    input.addEventListener("input", this.onScaleInput);
+    input.addEventListener("change", this.onScaleChange);
+    const display = new TextSlot(createElement("span", "slider-value", parent));
+    display.set(`${input.value}%`);
     return [input, display];
   }
 

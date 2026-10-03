@@ -1,6 +1,6 @@
 // src/hud/entities.ts — Darstellung der Objektarten: Schlüssel, Farbklassen, Namen, Aufschaltbarkeit.
 
-import type { EntityRef, EntityType } from "./hudTypes";
+import type { EntityRef, EntityType, HudModel } from "./hudTypes";
 
 const TypeIndex: Readonly<Record<EntityType, number>> = {
   bee: 1,
@@ -41,10 +41,35 @@ export const EntityToneClass: Readonly<Record<EntityType, string>> = {
   nest: "tone-nest",
 };
 
+/** Englischer Name einer Objektart, solange der Name des Objekts selbst unbekannt ist (Artname). */
+export const EntityTypeLabel: Readonly<Record<EntityType, string>> = {
+  bee: "Bee",
+  fly: "Fly",
+  flowerPatch: "Flower Patch",
+  hive: "Hive",
+  island: "Island",
+  nest: "Fly Nest",
+};
+
 /**
  * Ob sich eine Objektart grundsätzlich aufschalten lässt (Aufschaltbarkeit). Gilt nur, solange kein
  * Infofeld genauere Freigaben liefert; das Spiel prüft jede Aufschaltung selbst.
  */
 export function isLockableType(type: EntityType): boolean {
   return type === "bee" || type === "fly" || type === "flowerPatch" || type === "nest";
+}
+
+/** Name eines Objekts aus Auswahl, Zielen, Nearby-Liste oder Raumklammern des Frames (Objektname). */
+export function entityName(model: HudModel, ref: EntityRef): string | undefined {
+  if (model.selection !== undefined && sameEntity(model.selection.ref, ref)) {
+    return model.selection.name;
+  }
+  for (const list of [model.targets, model.overview, model.brackets]) {
+    for (const item of list) {
+      if (sameEntity(item.ref, ref)) {
+        return item.name;
+      }
+    }
+  }
+  return undefined;
 }

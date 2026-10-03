@@ -81,7 +81,7 @@ export class WorkshopPage implements StationPage {
   private readonly views: KeyedViews<UpgradeView, string>;
 
   public constructor(actions: HudActions) {
-    this.element = createElement("div", "hall-page-body workshop-page");
+    this.element = createElement("div", "workshop-page");
     this.list = createElement("ul", "upgrade-list", this.element);
     this.views = new KeyedViews<UpgradeView, string>(
       (kind) => new UpgradeView(kind, actions),

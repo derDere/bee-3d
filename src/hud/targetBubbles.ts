@@ -43,7 +43,7 @@ class BubbleView implements KeyedView {
     holder.innerHTML = petalRing();
     const ring = holder.content.firstElementChild;
     if (!(ring instanceof SVGSVGElement)) {
-      throw new Error("Blütenkranz ließ sich nicht anlegen.");
+      throw new Error("Target wreath could not be created.");
     }
     const stage = createElement("span", "bubble-stage", this.element);
     stage.appendChild(ring);
@@ -84,7 +84,8 @@ class BubbleView implements KeyedView {
       for (let index = 0; index < PetalCount; index++) {
         this.petals[index].classList.toggle("is-lost", index >= shown);
       }
-      this.element.setAttribute("aria-label", `${target.name}: ${Math.round(clamp01(target.hpRatio) * 100)}% health`);
+      const measure = target.ref.type === "flowerPatch" ? "pollen left" : "health";
+      this.element.setAttribute("aria-label", `${target.name}: ${Math.round(clamp01(target.hpRatio) * 100)}% ${measure}`);
     }
     const tier = target.hpRatio > 0.6 ? "hp-high" : target.hpRatio > 0.3 ? "hp-mid" : "hp-low";
     if (tier !== this.tier) {

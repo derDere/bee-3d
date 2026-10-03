@@ -9,6 +9,8 @@ export interface GameSettings {
   invertY: boolean;
   mouseSensitivity: number;
   reduceFlashes: boolean;
+  /** Größe der Oberfläche als Faktor (1 = Grundgröße). */
+  uiScale: number;
   playerName: string;
 }
 
@@ -20,6 +22,7 @@ const DefaultSettings: GameSettings = {
   invertY: false,
   mouseSensitivity: 1,
   reduceFlashes: false,
+  uiScale: 1,
   playerName: "",
 };
 

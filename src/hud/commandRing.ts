@@ -1,18 +1,18 @@
 // src/hud/commandRing.ts — Befehlskranz um das ausgewählte Objekt: runde Symbolknöpfe als Blütenblätter mit
 // Tastenabzeichen. Umkreisen und Abstand halten tragen ihren Abstand als Fähnchen; Fähnchen, Rechtsklick oder
-// langer Druck auf das Blatt öffnen die Abstandswahl.
+// langer Druck auf das Blatt öffnen die Abstandswahl. Das Auge richtet die Kamera auf das Objekt und zurück.
 
 import { buildDistanceChoices, CommandDistanceChoices, DistanceCommandNames, type DistanceCommand } from "./commandMenu";
 import { createButton, createElement, NumberSlot, setHint, setVisible } from "./dom";
-import { isLockableType } from "./entities";
+import { isLockableType, sameEntity } from "./entities";
 import { distanceStep, formatDistance } from "./format";
 import type { HudContext } from "./hudContext";
-import type { CommandIcon, SelectionHud } from "./hudTypes";
+import type { CommandIcon, EntityRef, SelectionHud } from "./hudTypes";
 import { createKeyBadge } from "./iconButton";
 import { IconSlot } from "./icons";
 
 /** Blatt des Befehlskranzes (Befehlsblatt). */
-type PetalKind = "approach" | "orbit" | "keepRange" | "align" | "warp" | "dock" | "lock";
+type PetalKind = "approach" | "orbit" | "keepRange" | "align" | "warp" | "dock" | "lock" | "lookAt";
 
 interface PetalSpec {
   readonly kind: PetalKind;
@@ -22,6 +22,8 @@ interface PetalSpec {
   readonly hint: string;
 }
 
+const LookAtHint = "Point the camera at it. Your bee keeps its course.";
+
 const Petals: readonly PetalSpec[] = [
   { kind: "approach", icon: "approach", key: "Q", label: "Approach (Q)", hint: "Fly there and stop in front of it." },
   { kind: "orbit", icon: "orbit", key: "W", label: "Orbit (W)", hint: "Circle around it.\nRight-click or hold to choose the distance." },
@@ -30,6 +32,7 @@ const Petals: readonly PetalSpec[] = [
   { kind: "warp", icon: "warp", key: "S", label: "Warp (S)", hint: "Ride the storm wind to things at least 150 m away." },
   { kind: "dock", icon: "dock", key: "D", label: "Dock (D)", hint: "Hives only, within 45 m." },
   { kind: "lock", icon: "lock", key: undefined, label: "Lock target (Ctrl+Click)", hint: "Lock on to use your modules on it." },
+  { kind: "lookAt", icon: "lookAt", key: undefined, label: "Look at", hint: LookAtHint },
 ];
 
 /** Lücke im Kranz zur Sprechblase hin (Grad). */
@@ -69,6 +72,8 @@ function isEnabled(kind: PetalKind, selection: SelectionHud): boolean {
       return selection.canDock;
     case "lock":
       return selection.isLocked || selection.canLock;
+    case "lookAt":
+      return true;
   }
 }
 
@@ -130,9 +135,12 @@ export class CommandRing {
   private readonly views: PetalView[] = [];
   private readonly bySlot = new WeakMap<Element, PetalView>();
   private readonly lockView: PetalView;
+  private readonly lookView: PetalView;
   private current: SelectionHud | undefined;
   private layoutMask = -1;
   private locked: boolean | undefined;
+  /** Die Kamera ist auf das ausgewählte Objekt gerichtet. */
+  private looking: boolean | undefined;
   private pressTimer = 0;
   private suppressClick = false;
 
@@ -199,7 +207,8 @@ export class CommandRing {
       this.bySlot.set(view.slot, view);
       this.views.push(view);
     });
-    this.lockView = this.views[this.views.length - 1];
+    this.lockView = this.viewOf("lock");
+    this.lookView = this.viewOf("lookAt");
     this.element.addEventListener("click", this.onClick);
     this.element.addEventListener("contextmenu", this.onContextMenu);
     this.element.addEventListener("pointerdown", this.onPointerDown);
@@ -208,8 +217,22 @@ export class CommandRing {
     this.element.addEventListener("pointerleave", this.onPointerEnd);
   }
 
-  /** `flipped`: Die Blase hängt unter dem Objekt; der Kranz öffnet sich nach unten. */
-  public update(selection: SelectionHud, flipped: boolean): void {
+  /** Zahl der Blätter, die der Kranz für diese Auswahl zeigt. */
+  public shownCount(selection: SelectionHud): number {
+    let count = 0;
+    for (const view of this.views) {
+      if (isShown(view.spec.kind, selection)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * `flipped`: Die Blase hängt unter dem Objekt; der Kranz öffnet sich nach unten. `lookAt` ist das Objekt, auf
+   * das die Kamera gerade gerichtet ist.
+   */
+  public update(selection: SelectionHud, flipped: boolean, lookAt: EntityRef | undefined): void {
     this.current = selection;
     let mask = flipped ? 1 << this.views.length : 0;
     for (let index = 0; index < this.views.length; index++) {
@@ -236,6 +259,18 @@ export class CommandRing {
         setHint(button, "Lock target (Ctrl+Click)", "Lock on to use your modules on it.");
       }
       button.classList.toggle("is-locked", selection.isLocked);
+    }
+    const looking = sameEntity(lookAt, selection.ref);
+    if (looking !== this.looking) {
+      this.looking = looking;
+      const button = this.lookView.button;
+      button.classList.toggle("is-on", looking);
+      button.setAttribute("aria-pressed", String(looking));
+      if (looking) {
+        setHint(button, "Back to my bee", "You are looking at it. Click to point the camera at your bee again.");
+      } else {
+        setHint(button, "Look at", LookAtHint);
+      }
     }
   }
 
@@ -293,6 +328,9 @@ export class CommandRing {
           actions.lock(selection.ref);
         }
         break;
+      case "lookAt":
+        actions.lookAt(this.looking === true ? undefined : selection.ref);
+        break;
       default:
         actions.command(kind, selection.ref);
     }
@@ -318,5 +356,13 @@ export class CommandRing {
   private viewAt(target: EventTarget | null): PetalView | undefined {
     const slot = target instanceof Element ? target.closest(".ring-slot") : null;
     return slot === null ? undefined : this.bySlot.get(slot);
+  }
+
+  private viewOf(kind: PetalKind): PetalView {
+    const view = this.views.find((candidate) => candidate.spec.kind === kind);
+    if (view === undefined) {
+      throw new Error(`Command ring has no ${kind} petal.`);
+    }
+    return view;
   }
 }

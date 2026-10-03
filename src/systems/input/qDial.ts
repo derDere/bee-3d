@@ -6,6 +6,7 @@ import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder"
 import { CreateTorus } from "@babylonjs/core/Meshes/Builders/torusBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import { useMaterialImageProcessing } from "../../rendering/materialImageProcessing";
 import type { ScreenPoint, ScreenProjector } from "../screenProjector";
 
 const MinDistance = 3;
@@ -49,6 +50,7 @@ export class QDial {
     material.emissiveColor = new Color3(1, 0.78, 0.25);
     material.alpha = 0.85;
     material.disableDepthWrite = true;
+    useMaterialImageProcessing(material);
     this.ring = CreateTorus("qDialRing", { diameter: 2, thickness: 0.06, tessellation: 64 }, scene);
     this.guide = CreateCylinder("qDialGuide", { height: 1, diameter: 1, tessellation: 8 }, scene);
     this.plumb = CreateCylinder("qDialPlumb", { height: 1, diameter: 1, tessellation: 8 }, scene);

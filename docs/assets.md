@@ -16,7 +16,7 @@ Es gibt keine Audiodateien, keine fremden Texturen und keine fremden Modelle.
 | `fly-queen.glb` | Fliegenkönigin (Endgegner) | `tools/models/fly.py` | eigene Arbeit |
 | `hive.glb` | Bienenstock-Station: Strohkorb, Waben, Flugloch, Wabenhalle; Anker `DockPoint`, `EntrancePoint`, `HangarPoint`, `HangarCamera`, `BeaconPoint` | `tools/models/hive.py`, `tools/models/hivekit/` | eigene Arbeit |
 | `hive-lod1.glb` | Bienenstock für die Ferne (ohne Halle) | `tools/models/hive.py` | eigene Arbeit |
-| `islands/island-<name>.glb`, `-lod1`, `-lod2` | Schwebende Inseln (tiny, blossom, hill, meadow, cliff, grove, terrace, lake, nest) in drei Detailstufen | `tools/models/sky_islands.py`, `tools/models/islandkit/` | eigene Arbeit |
+| `islands/island-<name>.glb`, `-lod1`, `-lod2` | Schwebende Inseln (tiny, blossom, hill, meadow, cliff, grove, terrace, lake, nest) in drei Detailstufen; Wasserfälle aus Bachmündungen und Felsquellen mit Gischt, Moospolster an den Felswänden, dichte Haine | `tools/models/sky_islands.py`, `tools/models/islandkit/` | eigene Arbeit |
 | `flora/*.glb` | Gräser, Blumen, Büsche, Bäume, Felsen, Seerosen, Pilze, Madenhügel | `tools/models/island_flora.py`, `tools/models/islandkit/` | eigene Arbeit |
 
 `shared/islandCatalog.ts` (Maße, Blumenfelder, Kollisionsfelder der Inseln) schreibt

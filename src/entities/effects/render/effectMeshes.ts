@@ -4,6 +4,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import type { Scene } from "@babylonjs/core/scene";
+import { useMaterialImageProcessing } from "../../../rendering/materialImageProcessing";
 
 /** Profil des Stachels entlang +z, Spitze vorne (Länge 6 cm): Paare aus z und Radius in Metern. */
 const StingerProfile: ReadonlyArray<readonly [number, number]> = [
@@ -62,6 +63,7 @@ export function createStingerMesh(scene: Scene): Mesh {
   material.specularPower = 48;
   material.emissiveColor = new Color3(0.015, 0.01, 0.005);
   material.backFaceCulling = false;
+  useMaterialImageProcessing(material);
   mesh.material = material;
   return mesh;
 }
@@ -94,6 +96,7 @@ export function createWingShardMesh(scene: Scene): Mesh {
   material.alpha = 0.55;
   material.backFaceCulling = false;
   material.twoSidedLighting = true;
+  useMaterialImageProcessing(material);
   mesh.material = material;
   return mesh;
 }

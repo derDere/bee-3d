@@ -78,8 +78,13 @@ export function upgradeLevelsOf(row: UpgradeLevelColumns): UpgradeLevels {
 /** Abgeleitete Werte einer Biene aus ihren Upgrades (Bienenwerte). */
 export interface BeeStats {
   readonly maxSpeed: number;
+  /** Höchste Drehrate in rad/s (Wendigkeit). */
   readonly agility: number;
-  readonly acceleration: number;
+  /**
+   * Trägheit τ in Sekunden nach EVE-Vorbild (Trägheit): Das Tempo nähert sich dem Sollwert exponentiell,
+   * v(t) = v_soll · (1 − e^(−t/τ)); 75 % des Höchsttempos (Ausrichtzeit für den Warp) nach ln 4 · τ.
+   */
+  readonly inertiaSeconds: number;
   readonly maxHp: number;
   readonly maxEnergy: number;
   readonly energyRegen: number;
@@ -98,8 +103,8 @@ export function beeStats(levels: UpgradeLevels): BeeStats {
   const wing = 1 + 0.08 * levels.wings;
   return {
     maxSpeed: 14 * wing,
-    agility: 2.8 * wing,
-    acceleration: 9 * wing,
+    agility: 1.6 * wing,
+    inertiaSeconds: 3 / wing,
     maxHp: 100 + 20 * levels.armor,
     maxEnergy: 100 + 20 * levels.nectar,
     energyRegen: 6 + levels.nectar,

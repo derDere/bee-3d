@@ -164,7 +164,7 @@ export class Clip {
     const loopLength = Math.round(loopSeconds * this.sampleRate);
     const fade = Math.min(Math.round(crossfadeSeconds * this.sampleRate), this.length - loopLength);
     if (fade <= 0) {
-      throw new Error("toLoop: Clip ist kürzer als Schleife plus Überblendung.");
+      throw new Error("toLoop: clip is shorter than loop plus crossfade.");
     }
     const channels = this.channels.map((data) => {
       const loop = data.slice(0, loopLength);
@@ -269,7 +269,7 @@ export class Clip {
 
   private mixInternal(source: Clip, atSeconds: number, gain: number, pan: number, wrap: boolean): void {
     if (source.sampleRate !== this.sampleRate) {
-      throw new Error("Clip.mix: Abtastraten unterscheiden sich.");
+      throw new Error("Clip.mix: sample rates differ.");
     }
     const length = this.length;
     let offset = Math.round(atSeconds * this.sampleRate);

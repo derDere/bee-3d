@@ -55,7 +55,9 @@ Server und Client prüfen dieselbe Grenzfunktion (`shared/world.ts`).
 ### Stimmung je Tageszeit (Zielbilder des Users)
 
 Überall gilt: massige Haufenwolken füllen den Raum, die Inseln mit Bäumen und Wasserfällen
-schweben mittendrin, ferne Inseln verschwimmen im Dunst.
+schweben mittendrin, ferne Inseln verschwimmen im Dunst. Die Zielbilder liegen unter `spec/look/`:
+[Morgen](look/morgen.jpg), [Mittag](look/mittag.jpg), [Abend](look/abend.jpg),
+[Nacht](look/nacht.jpg), [Gewitter](look/gewitter.jpg).
 
 | Zeit | Stimmung |
 |---|---|
@@ -70,8 +72,8 @@ schweben mittendrin, ferne Inseln verschwimmen im Dunst.
 | Wert | Basis | Pro Upgrade-Stufe | Stufen |
 |---|---|---|---|
 | Höchsttempo | 14 m/s | +8 % (Flügelmuskeln) | 5 |
-| Wendigkeit | 2,8 rad/s | +8 % (Flügelmuskeln) | — |
-| Beschleunigung | 9 m/s² | — | — |
+| Wendigkeit | 1,6 rad/s | +8 % (Flügelmuskeln) | — |
+| Trägheit τ (EVE-Formel v = v_max · (1 − e^(−t/τ))) | 3 s, Ausrichtzeit bis 75 % Tempo ≈ 4,2 s; Bremsen mit 0,6 τ | ÷ (1 + 0,08 je Stufe) (Flügelmuskeln) | — |
 | Lebenspunkte | 100 | +20 (Chitinpanzer) | 5 |
 | Nektar-Energie | 100, +6/s | +20, +1/s (Nektartank) | 5 |
 | Ladung | 120 Pollen | +60 (Pollenhöschen) | 5 |
@@ -82,6 +84,9 @@ schweben mittendrin, ferne Inseln verschwimmen im Dunst.
   ≥ 75 % Tempo), dann zieht der Sturmwind sie mit 320 m/s zum Ziel und setzt sie 15 m davor ab.
   Während des Warps sind Module aus.
 - **Boost (F6):** verdoppelt das Höchsttempo, kostet 10 Energie/s.
+- **Flugbild:** Die Biene schwirrt sichtbar um ihre Flugbahn – seitliches Pendeln mit passendem
+  Rollen (±5 cm im Flug), leichtes Auf und Ab, im Stand weiches Schweben in Achten. Im Warp fliegt
+  sie ruhig. Die Kamera folgt der Flugbahn selbst.
 
 ## Module und Waffen
 
@@ -121,14 +126,15 @@ Kosten je Stufe in Honig: 40, 90, 160, 260, 400.
 | Stinger Quiver | +1 Stachel je Salve |
 | Collector Brushes | Pollensammler +2 Pollen je Zyklus |
 | Pollen Pants | Ladung +60 |
-| Wing Muscles | Tempo und Wendigkeit +8 % |
+| Wing Muscles | Tempo und Wendigkeit +8 %, Trägheit geringer |
 | Chitin Armour | Lebenspunkte +20 |
 | Feeler Antennae | Aufschaltreichweite +60 m, ab Stufe 2 und 4 je +1 Ziel |
 | Nectar Tank | Energie +20, Regeneration +1/s |
 
 ## Sammeln (Pollen-Mining)
 
-- Jede Insel trägt 1–7 Blumenfelder (klein 1–2, mittel 2–4, groß 4–7) mit 60–200 Pollen.
+- Jede Insel trägt 1–7 Blumenfelder (klein 1–2, mittel 2–4, groß 4–7) mit 60–200 Pollen, skaliert mit
+  der Inselgröße (×0,7 bis ×1,4, also 42–280 Pollen).
 - Ein Feld wächst mit 1 Pollen je 6 s nach (bis zur Kapazität); der Wert wird beim Lesen aus
   Zeitstempel und Stand berechnet, ohne Schreiblast je Takt.
 - 2 % der Felder sind **Goldblumen**: Goldpollen zählt beim Abliefern das Fünffache.

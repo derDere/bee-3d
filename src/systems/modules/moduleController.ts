@@ -11,6 +11,7 @@ import {
   laserStats,
   moduleCycleSeconds,
   moduleRange,
+  stingerRange,
   stingerStats,
   type BeeStats,
   type ModuleInfo,
@@ -178,7 +179,7 @@ export class ModuleController implements FrameSystem {
   private tooltip(info: ModuleInfo, levels: UpgradeLevels): string {
     const energy = info.energyCost > 0 ? ` · ${info.energyCost} energy` : "";
     const pollen = info.pollenCost > 0 ? ` · ${info.pollenCost} pollen per cycle` : "";
-    const cycle = `Cycle ${moduleCycleSeconds(info.slot, levels).toFixed(1)} s${energy}${pollen}`;
+    const cycle = `Cycle ${formatSeconds(moduleCycleSeconds(info.slot, levels))} s${energy}${pollen}`;
     switch (info.slot) {
       case ModuleSlots.laserLeft:
       case ModuleSlots.laserRight: {
@@ -191,7 +192,7 @@ export class ModuleController implements FrameSystem {
       }
       case ModuleSlots.stinger: {
         const stinger = stingerStats(levels);
-        return `${info.title} (${info.hotkey}) — ${stinger.count} homing stingers × ${stinger.damage} damage, ${stinger.speed} m/s, explosion radius ${stinger.explosionRadius} m. ${cycle}.`;
+        return `${info.title} (${info.hotkey}) — ${stinger.count} homing stingers × ${stinger.damage} damage, ${stinger.speed} m/s for ${stinger.flightSeconds} s (range ${stingerRange(levels)} m), explosion radius ${stinger.explosionRadius} m, explosion velocity ${stinger.explosionVelocity} m/s. ${cycle}.`;
       }
       case ModuleSlots.collector:
         return `${info.title} (${info.hotkey}) — ${collectorYield(levels)} pollen per cycle from a flower patch within ${CollectorRange} m, more at night. ${cycle}.`;
@@ -205,4 +206,9 @@ export class ModuleController implements FrameSystem {
         return info.title;
     }
   }
+}
+
+/** Sekunden mit höchstens zwei Nachkommastellen, ohne überflüssige Nullen (0.45, 0.5, 8). */
+function formatSeconds(seconds: number): string {
+  return String(Number(seconds.toFixed(2)));
 }

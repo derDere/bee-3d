@@ -51,11 +51,12 @@ Sammeln und Andocken brauchen die Verbindung.
 | Klick auf Objekt bzw. Overview-Zeile | auswählen |
 | Q / W / E / A / S / D + Klick (ohne Klick: Auswahl) | hinfliegen, umkreisen, Abstand halten, ausrichten, Warp, andocken |
 | Q ohne Auswahl | Wählscheibe: Richtung und Entfernung, dann Höhe |
+| Rechtsklick auf Objekt | Kontextmenü; „Look at“ richtet die Kamera auf das Objekt, „Look at my bee“ zurück |
 | Strg + Klick / Strg + Umschalt + Klick | Ziel aufschalten / lösen |
 | F1 – F8 | Module: Laserauge links/rechts, Pollen-Gatling, Stachelraketen, Pollensammler, Boost, Heilung, Duftscanner |
 | Alt + linke Maustaste halten | Laseraugen auf den Mauszeiger feuern |
 | Pfeiltasten, R / F | Handflug, schneller / langsamer |
-| Strg + Leertaste | anhalten |
+| Leertaste | anhalten |
 | Tab, B, H, Esc | nächstes Ziel aktiv, summen, Hilfe, Menü |
 
 Vollständig: `spec/steuerung.md`. Touch: zwei virtuelle Sticks (Flug links, Zielen und Laser rechts).
@@ -63,8 +64,9 @@ Vollständig: `spec/steuerung.md`. Touch: zwei virtuelle Sticks (Flug links, Zie
 ## Projektaufbau
 
 ```
-spec/        Anforderungen (spec/anforderungen.md), Spieldesign, Steuerung, Technik
-docs/        Asset-Herkunft und Lizenzen (assets.md), Hinweise für den Betrieb (betrieb.md)
+spec/        Anforderungen (spec/anforderungen.md), Spieldesign, Steuerung, Technik, Zielbilder (spec/look/)
+docs/        Asset-Herkunft und Lizenzen (assets.md), Hinweise für den Betrieb (betrieb.md),
+             Prüfung gegen die Anforderungen (pruefprotokoll.md), offene Punkte (offene-punkte.md)
 dev/         Demodaten (dev/seed/), Referenzen
 shared/      Weltkonstanten, Weltgenerator, Regeln, Quests – Client und Modul
 server/      SpacetimeDB-Modul
@@ -85,3 +87,7 @@ liefert das aktuelle HUD-Modell. Kamerapunkte und Effektnamen: `spec/technik.md`
 
 Der Profil-Build eignet sich für Messungen und Tests, während am Code gearbeitet wird: Der
 Dev-Server lädt jede offene Seite bei jeder Dateiänderung neu.
+
+Dev- und Profil-Build melden fehlende Side-Effect-Imports von Babylon in der Konsole. Die beiden
+Meldungen zu `Scene.getBoundingBoxRenderer()` und `Scene.getOutlineRenderer()` stammen aus
+Babylons eigenen Funktionsprüfungen im Renderablauf; das Spiel nutzt beide Renderer nicht.

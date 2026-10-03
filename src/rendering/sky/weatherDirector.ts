@@ -23,7 +23,7 @@ export interface WeatherPreset {
 
 const Presets: Readonly<Record<WeatherName, WeatherPreset>> = {
   clear: { coverage: 0.28, stormCoverage: 0, rain: 0, wind: 2, mistFactor: 0.5, keyLightFactor: 1, exposureEv: 0, saturationDelta: 0, lightningPerMinute: 0, shaftFactor: 0.8, hazeGray: 0, hazeFactor: 0.8, coolTint: 0 },
-  fair: { coverage: 0.27, stormCoverage: 0, rain: 0, wind: 4, mistFactor: 1, keyLightFactor: 1, exposureEv: 0, saturationDelta: 0, lightningPerMinute: 0, shaftFactor: 1, hazeGray: 0, hazeFactor: 1, coolTint: 0 },
+  fair: { coverage: 0.33, stormCoverage: 0, rain: 0, wind: 4, mistFactor: 1, keyLightFactor: 1, exposureEv: 0, saturationDelta: 0, lightningPerMinute: 0, shaftFactor: 1, hazeGray: 0, hazeFactor: 1, coolTint: 0 },
   "misty-morning": { coverage: 0.37, stormCoverage: 0, rain: 0, wind: 1, mistFactor: 2, keyLightFactor: 0.9, exposureEv: 0, saturationDelta: 0, lightningPerMinute: 0, shaftFactor: 1.3, hazeGray: 0, hazeFactor: 1.1, coolTint: 0 },
   overcast: { coverage: 0.48, stormCoverage: 0, rain: 0.1, wind: 5, mistFactor: 1.2, keyLightFactor: 0.45, exposureEv: 0.2, saturationDelta: -25, lightningPerMinute: 0, shaftFactor: 0.3, hazeGray: 0.45, hazeFactor: 2, coolTint: 0.25 },
   shower: { coverage: 0.38, stormCoverage: 0.38, rain: 0.7, wind: 6, mistFactor: 1, keyLightFactor: 0.65, exposureEv: 0.2, saturationDelta: -15, lightningPerMinute: 0.5, shaftFactor: 1.5, hazeGray: 0.3, hazeFactor: 2, coolTint: 0.3 },

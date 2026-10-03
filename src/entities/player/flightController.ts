@@ -31,6 +31,12 @@ export interface FlightHooks {
 }
 
 const TurnBlend = 6;
+/** Langsamer werden geht schneller als Beschleunigen: Anteil der Trägheit beim Bremsen (bessere Kontrolle). */
+const BrakeInertiaShare = 0.6;
+/** Mindesttempo beim Anflug, damit exponentielles Abbremsen das Ziel in endlicher Zeit erreicht (m/s). */
+const ArrivalSpeed = 0.6;
+/** Zusätzliche Reibung beim Bremsen (m/s²): beendet den langsamen Auslauf der Exponentialkurve. */
+const BrakeFriction = 0.8;
 const OrbitCorrection = 0.8;
 const KeepRangeTolerance = 2;
 const CollisionClearance = 0.12;
@@ -217,6 +223,7 @@ export class FlightController {
     if (this.warpPhase !== undefined) {
       this.warpPhase = undefined;
       this.command = "idle";
+      this.commandLabel = "Warp interrupted";
     }
   }
 
@@ -330,8 +337,8 @@ export class FlightController {
       this.desiredDirection.copyFrom(this.heading);
     }
     const remaining = Math.max(0, distance - stopDistance);
-    // Bremsweg v²/(2a): rechtzeitig abbremsen
-    const brake = Math.sqrt(2 * this.stats.acceleration * remaining * 0.8);
+    // Exponentielles Abbremsen legt aus Tempo v noch v·τ zurück: Solltempo proportional zur Restdistanz
+    const brake = Math.max(ArrivalSpeed, remaining / this.brakeSeconds);
     return Math.min(cruise, brake);
   }
 
@@ -360,7 +367,7 @@ export class FlightController {
     if (error < 0) {
       this.desiredDirection.negateInPlace(); // zu nah: zurückweichen
     }
-    return Math.min(cruise, Math.sqrt(2 * this.stats.acceleration * Math.abs(error) * 0.8));
+    return Math.min(cruise, Math.max(ArrivalSpeed, Math.abs(error) / this.brakeSeconds));
   }
 
   private updateWarp(target: CommandTarget | undefined): number {
@@ -413,6 +420,11 @@ export class FlightController {
     }
   }
 
+  /** Zeitkonstante beim Langsamerwerden (Sekunden). */
+  private get brakeSeconds(): number {
+    return this.stats.inertiaSeconds * BrakeInertiaShare;
+  }
+
   private steerManual(dt: number): void {
     const turn = this.stats.agility * dt;
     if (this.manualYaw !== 0) {
@@ -444,8 +456,18 @@ export class FlightController {
       }
     }
     const current = this.velocity.length();
-    const acceleration = warping ? WarpSpeed * 0.9 : this.stats.acceleration;
-    const nextSpeed = current < desiredSpeed ? Math.min(desiredSpeed, current + acceleration * dt) : Math.max(desiredSpeed, current - acceleration * 1.6 * dt);
+    let nextSpeed: number;
+    if (warping) {
+      const acceleration = WarpSpeed * 0.9;
+      nextSpeed = current < desiredSpeed ? Math.min(desiredSpeed, current + acceleration * dt) : Math.max(desiredSpeed, current - acceleration * 1.6 * dt);
+    } else {
+      // Trägheit nach EVE: exponentielle Annäherung an das Solltempo, beim Bremsen mit kürzerer Zeitkonstante
+      if (current < desiredSpeed) {
+        nextSpeed = desiredSpeed + (current - desiredSpeed) * Math.exp(-dt / this.stats.inertiaSeconds);
+      } else {
+        nextSpeed = Math.max(desiredSpeed, desiredSpeed + (current - desiredSpeed) * Math.exp(-dt / this.brakeSeconds) - BrakeFriction * dt);
+      }
+    }
     this.heading.scaleToRef(nextSpeed, this.velocity);
 
     // Grenze: Böen drücken die Biene vor dem Kugelrand zurück
@@ -503,6 +525,13 @@ function rotateTowards(current: Vector3, target: Vector3, maxAngle: number, blen
     return;
   }
   const step = Math.min(angle, Math.max(maxAngle * Math.min(1, angle * 4), angle * Math.min(1, blend * 0.2)), maxAngle);
+  if (Math.PI - angle < 1e-3) {
+    // Ziel genau hinter der Biene: Die Drehebene ist unbestimmt, die Biene wendet seitlich (um die Hochachse).
+    const axis = Math.abs(current.y) < 0.99 ? Vector3.UpReadOnly : Vector3.RightReadOnly;
+    const side = Vector3.Cross(axis, current).normalize();
+    current.scaleInPlace(Math.cos(step)).addInPlace(side.scaleInPlace(Math.sin(step))).normalize();
+    return;
+  }
   const t = step / angle;
   // Slerp zwischen current und target
   const sinAngle = Math.sin(angle);

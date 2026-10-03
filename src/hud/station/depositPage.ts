@@ -18,7 +18,7 @@ export class DepositPage implements StationPage {
   private readonly emptyNote: HTMLParagraphElement;
 
   public constructor(actions: HudActions) {
-    this.element = createElement("div", "hall-page-body deposit-page");
+    this.element = createElement("div", "deposit-page");
     const counter = createElement("div", "deposit-counter", this.element);
     this.pollen = this.item(counter, "pollen", "Pollen", `Each pollen makes ${formatInteger(HoneyPerPollen)} honey.`);
     this.gold = this.item(counter, "goldPollen", "Gold pollen", `Each gold pollen makes ${formatInteger(HoneyPerGoldPollen)} honey.`);

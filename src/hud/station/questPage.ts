@@ -73,7 +73,7 @@ export class QuestPage implements StationPage {
   private readonly views: KeyedViews<QuestView>;
 
   public constructor() {
-    this.element = createElement("div", "hall-page-body quest-page");
+    this.element = createElement("div", "quest-page");
     this.list = createElement("ul", "quest-list", this.element);
     this.empty = createElement("p", "hall-note", this.element, "The queen has no tasks right now. Come back later!");
     this.views = new KeyedViews<QuestView>(

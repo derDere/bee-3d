@@ -136,7 +136,7 @@ export interface LogEntry {
 }
 
 /** Symbol eines Befehls oder Kontextmenü-Eintrags (Befehlssymbol). */
-export type CommandIcon = "select" | "approach" | "orbit" | "keepRange" | "align" | "warp" | "dock" | "stop" | "lock" | "unlock" | "flyHere" | "home";
+export type CommandIcon = "select" | "approach" | "orbit" | "keepRange" | "align" | "warp" | "dock" | "stop" | "lock" | "unlock" | "flyHere" | "home" | "lookAt";
 
 /** Eintrag des Kontextmenüs (Menüeintrag): Symbol, englischer Text für Tooltip und Vorlesen, optional ein Zusatz wie "20 m". */
 export interface ContextMenuEntry {
@@ -145,6 +145,8 @@ export interface ContextMenuEntry {
   readonly detail?: string;
   readonly hotkey?: string;
   readonly enabled: boolean;
+  /** Eingeschalteter Zustand, z. B. „Look at“ beim gerade angesehenen Objekt; das Blatt erscheint hervorgehoben. */
+  readonly active?: boolean;
   readonly run: () => void;
 }
 
@@ -235,6 +237,8 @@ export interface HudModel {
   /** Feste Tastenhilfe ein- oder ausgeblendet. */
   readonly showHelp: boolean;
   readonly fps: number;
+  /** Objekt, auf das die Kamera gerichtet ist (Ansehen wie in EVE); undefined = eigene Biene. */
+  readonly lookAt: EntityRef | undefined;
 }
 
 /** Befehle an die eigene Biene (Flugbefehl). */
@@ -259,10 +263,14 @@ export interface HudActions {
   setHomeHive(): void;
   returnHome(): void;
   buzz(): void;
+  /** Richtet die Kamera auf ein Objekt (Ansehen); undefined richtet sie wieder auf die eigene Biene. */
+  lookAt(ref: EntityRef | undefined): void;
   setQuality(tier: "auto" | "low" | "medium" | "high" | "ultra"): void;
   setVolume(master: number, music: number): void;
   setInvertY(invert: boolean): void;
   setReduceFlashes(reduce: boolean): void;
+  /** Speichert die Größe der Oberfläche (Faktor, 1 = Grundgröße); die Oberfläche wendet sie selbst an. */
+  setUiScale(scale: number): void;
   toggleHelp(): void;
   /** Wird aufgerufen, wenn die Oberfläche Tastatureingaben für sich beansprucht (Texteingabe). */
   setTyping(typing: boolean): void;
@@ -275,5 +283,7 @@ export interface HudSettings {
   readonly musicVolume: number;
   readonly invertY: boolean;
   readonly reduceFlashes: boolean;
+  /** Größe der Oberfläche als Faktor (1 = Grundgröße). */
+  readonly uiScale: number;
   readonly suggestedName: string;
 }

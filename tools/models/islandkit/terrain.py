@@ -448,6 +448,23 @@ class IslandTerrain(Sdf):
         slope = pond_level - np.linspace(0.0, 0.25 + 0.01 * self.dims.radius, len(stream.path))
         return WaterLevels(pond_level, np.minimum.accumulate(np.minimum(slope, banks)))
 
+    def wall_points(self, angles: FloatArray, heights: FloatArray) -> FloatArray:
+        """Schnittpunkte waagrechter Strahlen von außen mit dem Inselkörper (Bisektion entlang des Radius).
+
+        Je Winkel (Grundriss, von +x zu +z) und Höhe liefert die Methode den äußersten Punkt der
+        Wand; die Inselachse muss auf dieser Höhe im Körper liegen.
+        """
+        direction = np.stack([np.cos(angles), np.zeros_like(angles), np.sin(angles)], axis=1)
+        up = np.array([0.0, 1.0, 0.0])
+        outer = np.full(len(angles), self.dims.radius * 1.6)
+        inner = np.zeros(len(angles))
+        for _ in range(28):
+            middle = 0.5 * (outer + inner)
+            inside = self.distance(direction * middle[:, None] + up * heights[:, None]) < 0.0
+            inner = np.where(inside, middle, inner)
+            outer = np.where(inside, outer, middle)
+        return direction * inner[:, None] + up * heights[:, None]
+
     def stream_outlet(self) -> StreamOutlet | None:
         """Stelle, an der der Bach die Plateaukante verlässt (Ursprung des Wasserfalls)."""
         stream, levels = self.plan.stream, self.water

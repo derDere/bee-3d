@@ -17,6 +17,17 @@ eigener Trägheit aus; die Kamera ist von der Flugrichtung entkoppelt.
 | Klick auf den Tachometer | Tempo in Prozent des Höchsttempos setzen |
 | Alt + linke Maustaste halten | beide Laseraugen feuern auf den Punkt unter dem Mauszeiger; liegt dort ein Gegner, trifft der Laser ihn ohne Aufschalten (Steuerung des 2D-Vorbilds) |
 
+## Kamera
+
+- Die Orbit-Kamera folgt der gezeichneten Lage der Biene: Die Biene bleibt auch im Warp in der
+  Bildmitte. Korrekturen des Servers gleiten in etwa 0,15 s aus, statt zu springen.
+- **Ansehen** (Look at, wie in EVE): Kontextmenü oder Augen-Knopf im Befehlsring der Auswahl. Die
+  Kamera kreist dann um das Objekt – Fliege, Biene, Blumenfeld, Insel, Stock oder Nest – im Abstand
+  des dreifachen Objektradius, mindestens 2 m. „Look at my bee“ bzw. erneut das Auge kehrt zur
+  eigenen Biene zurück; verschwindet das Objekt, kehrt die Kamera von selbst zurück.
+- Angedockt schwebt die Biene in der Wabenhalle des Stocks; die Kamera kreist um sie (Zoom bis
+  2,5 m).
+
 ## Befehle
 
 Taste gedrückt halten und Objekt anklicken; ohne Klick gilt der Befehl für die aktuelle Auswahl.
@@ -29,7 +40,7 @@ Taste gedrückt halten und Objekt anklicken; ohne Klick gilt der Befehl für die
 | A | Ausrichten | dreht die Flugrichtung zum Ziel |
 | S | Warp | ab 150 m Entfernung |
 | D | Andocken | nur Bienenstöcke, ≤ 45 m |
-| Strg + Leertaste | Anhalten | |
+| Leertaste | Anhalten | |
 | F1–F8 | Module | auf das aktive Ziel; erneut drücken beendet nach dem Zyklus |
 | B | Summen | Emote |
 | Tab | nächstes aufgeschaltetes Ziel aktiv | |
@@ -56,13 +67,16 @@ und setzt die Biene in den Handflug.
 
 | Bereich | Inhalt |
 |---|---|
-| oben links | Verbindungsstatus, Name, Honig, Ladung |
-| oben Mitte | aufgeschaltete Ziele als Kreise mit LP-Ring und Entfernung; das aktive Ziel ist hervorgehoben |
-| rechts oben | Infofeld „Auswahl“: Name, Typ, Entfernung, Tempo, Befehlsknöpfe Q W E A S D, Aufschalten |
-| rechts | Overview mit Reitern „Alle“, „Kampf“, „Sammeln“, „Navigation“; Spalten Symbol, Name, Typ, Entfernung, Tempo; sortierbar |
-| unten Mitte | Schiffs-HUD: LP- und Energiering, Tachometer (klickbar), Stopp, Modulleiste F1–F8 mit Zyklusfortschritt |
-| unten links | Koordinaten, Höhe, Kompass, Ereignisprotokoll (Kampf, Sammeln, Sprüche der Fliegen) |
-| im Raum | Klammern um Objekte (Fliegen rot, Bienen blau, Bienenstöcke gelb, Blumenfelder weiß, Nester violett), Namen bei Auswahl und Aufschaltung, LP-Balken über Bienen |
-| angedockt | Wabenhalle als Hintergrund, Stationsmenü mit den Reitern aus `spieldesign.md` |
-| Start | Namenseingabe mit Vorschlag, Knopf „Losfliegen“ (schaltet Ton frei) |
-| Menü (Esc) | Qualitätsstufe, Lautstärke, Maus invertieren, Steuerungshilfe |
+| oben links | Bienenplakette: Porträt (Klick = Summen), Name, Verbindungsstatus, Lebenspunkte, Energie, Ladung |
+| links darunter | Liste „Nearby“ mit Reitern Everything, Enemies, Flowers, Places; Symbol, Name, Typ, Entfernung, Tempo; sortierbar nach Entfernung, Name und Art; einklappbar |
+| oben rechts | Honig, Uhr mit Tagesphase und Wetter, Hilfe, Menü |
+| unten Mitte | Hinweis beim Ansehen, aufgeschaltete Ziele als Blasen mit Blütenring (LP) und Aufschaltfortschritt, Wabenleiste der Module F1–F8 mit Zyklusfortschritt; links daneben die Flugsteuerung mit Pusteblumen-Tacho (klickbar) und Stopp (Space) |
+| unten links | Kompass mit Kurs, Koordinaten und Höhe |
+| unten rechts | Ereignisprotokoll (Kampf, Sammeln, Sprüche der Fliegen, Systemmeldungen) |
+| im Raum | Klammern um Objekte (Fliegen rot, Bienen himmelblau, Bienenstöcke honiggelb, Blumenfelder rosa, Inseln grün, Nester violett), Namen bei Auswahl und Aufschaltung, LP-Balken über Bienen; Auswahl-Blase am Objekt mit Blüten-Befehlsring (Approach, Orbit, Keep range, Align, Warp, Dock, Lock, Look at) |
+| angedockt | Biene schwebt in der Wabenhalle; Seitenleiste links mit Stockwappen, den Seiten Deposit, Workshop, Quests, Heal, Leaderboard und Medals sowie Set as home und Undock; jede Seite öffnet ein eigenes Fenster (höchstens eins, Esc schließt es) |
+| Start | Namenseingabe mit Vorschlag, Startknopf (schaltet Ton frei) |
+| Menü (Esc) | Qualitätsstufe, Lautstärke, Maus invertieren, weniger Blitze, UI scale (70–130 %), Steuerungshilfe |
+
+Alle Maße der Oberfläche hängen an einer HUD-Einheit; „UI scale“ wirkt als Faktor darauf. Auf
+Touch-Geräten bleibt die Grundgröße fingergerecht, der Regler wirkt zusätzlich.

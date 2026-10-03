@@ -26,6 +26,8 @@ const Hysteresis = 1.12;
 const RebuildDistance = 40;
 /** Instanzierte Teile mit mehr Exemplaren (Gras, Blumen) werfen keine Schatten; Körper, Bäume und Felsen schon. */
 const ShadowInstanceLimit = 40;
+/** Materialnamen der Wasserflächen im Inselmodell (Wassermaterialien). */
+const WaterMaterialNames = new Set(["Island_Pond", "Island_Stream", "Island_Waterfall", "Island_Spray"]);
 /** Bis zu dieser Entfernung trägt eine Detailinsel ihre volle Bepflanzung. */
 const FullFloraDistance = 40;
 /** Kleinster Anteil der Bepflanzung am Rand der Detailreichweite. */
@@ -91,7 +93,8 @@ export class IslandStreamer implements FrameSystem {
   private readonly loading = new Set<number>();
   private readonly lastRebuild = new Vector3(Number.POSITIVE_INFINITY, 0, 0);
   private readonly flows: WaterFlow[] = [];
-  private readonly flowMaterials = new Set<string>();
+  /** Bereits erfasste Flussmaterialien; jede Modelldatei bringt eigene Materialobjekte mit. */
+  private readonly flowMaterials = new WeakSet<Material>();
   private readonly blossomMaterials = new Map<string, PBRMaterial>();
   private readonly onBlossomMaterial: (material: PBRMaterial) => void;
   private timeUntilUpdate = 0;
@@ -210,24 +213,25 @@ export class IslandStreamer implements FrameSystem {
     for (const node of [...container.transformNodes, ...container.meshes]) {
       const extras = (node.metadata as { gltf?: { extras?: { flow?: { speed?: number; material?: string } } } } | null)?.gltf?.extras;
       const flow = extras?.flow;
-      if (flow?.material === undefined || this.flowMaterials.has(flow.material)) {
+      if (flow?.material === undefined) {
         continue;
       }
       const material = container.materials.find((candidate: Material) => candidate.name === flow.material) as PBRMaterial | undefined;
-      if (material === undefined) {
+      if (material === undefined || this.flowMaterials.has(material)) {
         continue;
       }
-      this.flowMaterials.add(flow.material);
+      this.flowMaterials.add(material);
       const textures = [material.albedoTexture, material.bumpTexture].filter((texture): texture is BaseTexture => texture !== null);
       this.flows.push({ textures, speed: flow.speed ?? 0.3 });
     }
   }
 
   public frameUpdate(dt: number): void {
+    // v wächst in Fließrichtung; ein kleinerer Versatz schiebt das Muster zu größerem v, also stromab
     for (const flow of this.flows) {
       for (const texture of flow.textures) {
         const t = texture as Texture;
-        t.vOffset = (t.vOffset + flow.speed * dt) % 1;
+        t.vOffset = (((t.vOffset - flow.speed * dt) % 1) + 1) % 1;
       }
     }
     if (!this.ready) {
@@ -333,7 +337,7 @@ export class IslandStreamer implements FrameSystem {
         const instances = mesh instanceof Mesh ? mesh.thinInstanceCount : 0;
         if (instances > ShadowInstanceLimit && mesh instanceof Mesh) {
           flora.push({ mesh, fullCount: instances });
-        } else {
+        } else if (!isWater(mesh)) {
           this.shadows.addShadowCaster(mesh, false);
           casters.push(mesh);
         }
@@ -447,4 +451,10 @@ export class IslandStreamer implements FrameSystem {
     }
     this.farMasters.clear();
   }
+}
+
+/** Wasser und Gischt (Teich, Bach, Wasserfall) werfen keine Schatten: Sie sind durchscheinend bzw. fließen. */
+function isWater(mesh: AbstractMesh): boolean {
+  const name = mesh.material?.name ?? "";
+  return WaterMaterialNames.has(name);
 }

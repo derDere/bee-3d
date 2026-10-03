@@ -84,12 +84,26 @@ const WindDirection = new Vector3(0.82, 0, 0.57).normalize();
  */
 const MoonShaftBoost = 8;
 const MoonShaftFactor = 0.7;
-/** Weiter Hof der Strahlenquelle: um die Sonne breit, um den Mond schmal (der Nachthimmel bleibt dunkel). */
-const SunShaftHalo = 0.3;
-const MoonShaftHalo = 0.1;
-/** Winkelbreite der hellen Strahlenquelle (rad): die Sonne mit breitem Schein, der Mond eng um seine Scheibe. */
-const SunShaftCore = (6 * Math.PI) / 180;
-const MoonShaftCore = (2.5 * Math.PI) / 180;
+/**
+ * Sonne nach ihrer Höhe: unterhalb von `SunLowElevation` (Grad) um `SunHorizonScale` vergrößert und mit schwachem
+ * Strahlenkranz (`SunHorizonCorona`), ab `SunHighElevation` in Grundgröße mit vollem Strahlenkranz.
+ */
+const SunLowElevation = 2;
+const SunHighElevation = 25;
+const SunHorizonScale = 1.3;
+const SunHorizonCorona = 0.4;
+/** Mondscheibe nachts (Helligkeit vor der Belichtung) und Stärke ihres Hofs: hell genug für Bloom und einen Lichthof. */
+const MoonDiscIntensity = 1.1;
+const MoonGlow = 0.33;
+/** Weiter Hof der Strahlenquelle: ein schwacher Schein um die Sonne, um den Mond noch schwächer (der Nachthimmel bleibt dunkel). */
+const SunShaftHalo = 0.05;
+const MoonShaftHalo = 0.03;
+/** Winkelbreite der hellen Strahlenquelle (rad): eng um die Scheibe, damit Wolkenränder und Inseln sie in Strahlen zerteilen. */
+const SunShaftCore = (3 * Math.PI) / 180;
+const MoonShaftCore = (3 * Math.PI) / 180;
+/** Gleichmäßiger Schein neben den Strahlen: um die Sonne ein goldener Glanz, um den Mond wenig, damit die Scheibe lesbar bleibt. */
+const SunShaftGlow = 0.5;
+const MoonShaftGlow = 0.2;
 /** Flug durch Wolken: Sättigung (Prozentpunkte) bei voller Dichte an der Kamera; die Belichtung bleibt. */
 const InCloudDesaturation = 20;
 /** Umgebungslicht der Wolken: Stärke im Shader. */
@@ -103,6 +117,9 @@ const CoolShadowsHue = 228;
 /** Dichte an der Kamera, ab der die Bildschirm-Strahlen ausgeblendet sind (im Medium übernimmt der Raymarcher). */
 const ShaftMediumFadeStart = 0.05;
 const ShaftMediumFadeEnd = 0.5;
+/** Dichte an der Kamera, ab der der Raymarcher gröber rechnet, und unter der er zurückschaltet (Hysterese). */
+const InsideMediumEnter = 0.35;
+const InsideMediumLeave = 0.15;
 /** Blitzlicht auf den Regentropfen. */
 const RainFlashScale = 3;
 /** Belichtungsstoß der Blitze am Tag (Anteil); nachts wirkt er voll, weil die Szene dunkel ist. */
@@ -138,6 +155,7 @@ export class SkySystem implements FrameSystem, LightningTarget {
   private hazeEnabled = true;
   private mistEnabled = true;
   private cloudDensityAtCamera = 0;
+  private insideMedium = false;
   private shadowsEnabled = true;
   private clearings: readonly CloudClearing[] = [];
   private readonly nearClearings: CloudClearing[] = [];
@@ -317,6 +335,12 @@ export class SkySystem implements FrameSystem, LightningTarget {
   /** Wolkendichte an der Kamera (für Flug-im-Wolken-Effekte); die Dichtesonde setzt sie je Frame. */
   public setCameraCloudDensity(density: number): void {
     this.cloudDensityAtCamera = density;
+    // Im dichten Medium rechnet der Raymarcher gröber; die Hysterese verhindert Umschalten am Wolkenrand
+    const inside = this.insideMedium ? density > InsideMediumLeave : density > InsideMediumEnter;
+    if (inside !== this.insideMedium) {
+      this.insideMedium = inside;
+      this.clouds?.setInsideMedium(inside);
+    }
   }
 
   /** Wolkendichte an einem Weltpunkt (CPU, gleiche Formel wie der Shader); 0, solange das Rauschen fehlt. */
@@ -523,6 +547,7 @@ export class SkySystem implements FrameSystem, LightningTarget {
       length: Math.min(1, look.shaftStrength),
       haloWeight: this.keyIsMoon ? MoonShaftHalo : SunShaftHalo,
       coreAngle: this.keyIsMoon ? MoonShaftCore : SunShaftCore,
+      glowShare: this.keyIsMoon ? MoonShaftGlow : SunShaftGlow,
     });
   }
 
@@ -536,13 +561,17 @@ export class SkySystem implements FrameSystem, LightningTarget {
 
   private updateBodies(worldSeconds: number, nightFactor: number): void {
     const celestial = this.celestial;
+    // Tief am Horizont ein großer, leuchtender Ball, hoch am Himmel ein heller Stern mit Strahlenkranz
+    const sunHeight = smoothstep(SunLowElevation, SunHighElevation, celestial.sunElevationDeg);
     this.bodies.update({
       toSun: celestial.toSun,
       toMoon: celestial.toMoon,
       sunColor: Color3.White(),
       sunIntensity: 60,
-      moonIntensity: 0.9 * nightFactor + 0.15,
-      moonGlow: 0.25 * nightFactor * celestial.moonBrightness * (1 - this.weather.blended.coverage * 0.5),
+      sunScale: mix(SunHorizonScale, 1, sunHeight),
+      sunCorona: mix(SunHorizonCorona, 1, sunHeight),
+      moonIntensity: MoonDiscIntensity * nightFactor + 0.15,
+      moonGlow: MoonGlow * nightFactor * (0.6 + 0.4 * celestial.moonBrightness) * (1 - this.weather.blended.coverage * 0.5),
       moonPhase: celestial.moonPhase,
       starIntensity: nightFactor * (1 - this.weather.blended.coverage * 0.6),
       starRotation: celestial.starRotation,

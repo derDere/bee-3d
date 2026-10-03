@@ -3,6 +3,7 @@ import { WarpMinDistance } from "../../../shared/world";
 import type {
   BracketHud,
   ConnectionStatus,
+  EntityRef,
   HudModel,
   ModuleHud,
   OverviewRow,
@@ -45,6 +46,7 @@ export interface HudSources {
   banner(): string | undefined;
   showHelp(): boolean;
   fps(): number;
+  lookAt(): EntityRef | undefined;
   orbitDistance(): number;
   keepRangeDistance(): number;
   isDocked(): boolean;
@@ -83,6 +85,7 @@ export class HudPresenter {
       banner: s.banner(),
       showHelp: s.showHelp(),
       fps: s.fps(),
+      lookAt: s.lookAt(),
     };
   }
 

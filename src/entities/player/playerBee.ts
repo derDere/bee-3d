@@ -21,6 +21,11 @@ export interface BeeCondition {
   readonly gatlingFiring: boolean;
 }
 
+/** Korrekturen bis zu dieser Weite gleiten weich aus; größere Sprünge (Einsetzen, Wiederbelebung) gelten sofort (Meter). */
+const CorrectionGlideLimit = 25;
+/** Zeitkonstante, mit der ein Korrekturversatz abklingt (Sekunden). */
+const CorrectionGlideSeconds = 0.15;
+
 /**
  * Eigene Biene (Spielerbiene): verbindet Flugsteuerung, Darstellung und Netzschicht. Die Bewegung läuft
  * lokal im festen Takt, die Darstellung interpoliert zwischen den Schritten, der Server korrigiert nur
@@ -39,6 +44,10 @@ export class PlayerBee implements LocalBee {
   private levelsValue: UpgradeLevels = NoUpgrades;
   private statsValue: BeeStats = beeStats(NoUpgrades);
   private readonly previousPosition = new Vector3();
+  /** Sichtversatz nach einer Serverkorrektur; klingt weich ab, damit die Figur gleitet statt springt (Korrekturgleiten). */
+  private readonly correctionOffset = new Vector3();
+  /** Schwebepunkt im Hangar des Stocks, solange angedockt (Hangarlage). */
+  private hangarPose: { readonly position: Vector3; readonly yaw: number } | undefined;
   private readonly pose = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, aimYaw: 0, aimPitch: 0, clientFlags: 0 };
   private night = false;
 
@@ -89,9 +98,19 @@ export class PlayerBee implements LocalBee {
   }
 
   public correctTo(x: number, y: number, z: number): void {
+    // Die gezeichnete Lage gleitet von der bisherigen zur korrigierten; weite Sprünge gelten sofort
+    this.correctionOffset.set(this.renderPosition.x - x, this.renderPosition.y - y, this.renderPosition.z - z);
+    if (this.correctionOffset.length() > CorrectionGlideLimit) {
+      this.correctionOffset.setAll(0);
+      this.renderPosition.set(x, y, z);
+    }
     this.controller.teleport(x, y, z);
     this.previousPosition.set(x, y, z);
-    this.renderPosition.set(x, y, z);
+  }
+
+  /** Schwebepunkt im Hangar, solange angedockt (Blickrichtung als Gier); undefined = kein Hangar bekannt. */
+  public setHangarPose(position: Vector3 | undefined, yaw = 0): void {
+    this.hangarPose = position === undefined ? undefined : { position: position.clone(), yaw };
   }
 
   // ---------- Server-Stand ----------
@@ -144,15 +163,26 @@ export class PlayerBee implements LocalBee {
   }
 
   public frameUpdate(dt: number, alpha: number): void {
-    Vector3.LerpToRef(this.previousPosition, this.controller.position, alpha, this.renderPosition);
-    const heading = this.controller.heading;
-    const yaw = Math.atan2(heading.x, heading.z);
-    const pitch = Math.asin(Math.max(-1, Math.min(1, heading.y)));
     const condition = this.conditionState;
-    this.avatar.setVisible(!condition.docked);
-    this.avatar.setPose(this.renderPosition, yaw, pitch, this.controller.bank);
+    const hangar = condition.docked ? this.hangarPose : undefined;
+    const heading = this.controller.heading;
+    if (hangar !== undefined) {
+      // Angedockt: die Biene schwebt sichtbar im Hangar, die Kamera kreist um sie
+      this.renderPosition.copyFrom(hangar.position);
+      this.correctionOffset.setAll(0);
+      this.avatar.setPose(this.renderPosition, hangar.yaw, 0, 0);
+    } else {
+      Vector3.LerpToRef(this.previousPosition, this.controller.position, alpha, this.renderPosition);
+      this.correctionOffset.scaleInPlace(Math.exp(-dt / CorrectionGlideSeconds));
+      this.renderPosition.addInPlace(this.correctionOffset);
+      const yaw = Math.atan2(heading.x, heading.z);
+      const pitch = Math.asin(Math.max(-1, Math.min(1, heading.y)));
+      this.avatar.setPose(this.renderPosition, yaw, pitch, this.controller.bank);
+    }
+    this.avatar.setVisible(!condition.docked || hangar !== undefined);
     this.avatar.setLook({ night: this.night, laser: condition.laserFiring || this.freeAim, ghost: condition.ghost });
-    this.avatar.update(dt, this.controller.speed, this.controller.speed < 0.3);
+    const speed = hangar === undefined ? this.controller.speed : 0;
+    this.avatar.update(dt, speed, speed < 0.3);
   }
 
   public dispose(): void {

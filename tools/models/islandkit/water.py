@@ -1,8 +1,9 @@
-"""Wasser der Insel: Teichfläche, Bachband und Wasserfall mit Gischtschleier (Inselwasser).
+"""Wasser der Insel: Teichfläche, Bachband, Wassertexturen und gemeinsame Netzbausteine (Inselwasser).
 
-Alle Flächen sind fertige Netze mit Texturen. Bach und Wasserfall tragen UVs, deren v entlang
-der Fließrichtung wächst; das Spiel verschiebt die Texturen zur Laufzeit um
-``flow_speed`` UV-Einheiten je Sekunde (Knoten-``extras``: ``{"flow": {"speed": …}}``).
+Alle Flächen sind fertige Netze mit Texturen. Bach und Wasserfälle tragen UVs, deren v entlang
+der Fließrichtung wächst; das Spiel verschiebt die Texturen zur Laufzeit in Fließrichtung um
+``flow_speed`` UV-Einheiten je Sekunde (Knoten-``extras``: ``{"flow": {"speed": …}}``). Die Netze
+der Wasserfälle baut ``islandkit.waterfall``; ihre Texturen entstehen hier.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 from modelkit.shading import linear_to_srgb, smoothstep, srgb_to_linear
-from modelkit.sweep import transport_frames
 from modelkit.tiling import encode_linear, encode_normal, height_to_normal, periodic_noise
 
 from islandkit.terrain import IslandTerrain
@@ -22,13 +22,13 @@ type IndexArray = npt.NDArray[np.int64]
 type ByteImage = npt.NDArray[np.uint8]
 
 RIPPLE_TILE = 3.0  # m je Kachel der Wellen-Normal-Map
-FALL_TILE = 5.0  # m je Kachel der Wasserfalltextur entlang der Fallrichtung
-GRAVITY = 9.81
+FALL_HOLES = 0.12  # Anteil der Lücken zwischen den Fasern des Wasserkörpers
+FALL_FRINGE = 0.16  # ausgefranster Rand des Wasserkörpers (Anteil der Breite je Seite)
 
 
 @dataclass(frozen=True, slots=True)
 class WaterMesh:
-    """Wasserfläche (Wassernetz): Geometrie, UVs, Tangenten, lineare RGBA-Vertexfarben, Fließgeschwindigkeit."""
+    """Wasserfläche (Wassernetz): Geometrie, UVs, Tangenten, lineare Vertexfarben (RGB oder RGBA), Fließgeschwindigkeit."""
 
     vertices: FloatArray
     normals: FloatArray
@@ -41,14 +41,28 @@ class WaterMesh:
 
 @dataclass(frozen=True, slots=True)
 class WaterTextures:
-    """Gemeinsame Wassertexturen: Wellen-Normal-Map (kachelnd) und Wasserfall-RGBA (kachelnd entlang v)."""
+    """Wellen-Normal-Map für Teich und Bach (kachelnd, Wassertexturen)."""
 
     ripple_normal: ByteImage
-    fall_color: ByteImage
-    fall_normal: ByteImage
 
 
-def _grid_faces(rows: int, cols: int, *, flip: bool = False) -> IndexArray:
+@dataclass(frozen=True, slots=True)
+class FallTextures:
+    """Texturen der Wasserfälle (Falltexturen), alle kachelnd entlang v.
+
+    ``core_color`` (256 × 1024, RGBA): Fasern des Wasserkörpers; Alpha 0 in den Lücken und am
+    ausgefransten Rand, sonst 0,55–1 — der Alpha-Test schneidet bei 0,4. ``core_normal``: Relief der
+    Fasern. ``spray_color`` (512 × 512, RGBA): Gischt-Atlas, links (u 0–0,5) dieselben Fasern mit
+    weichem Alpha, rechts (u 0,5–1) Wolkenballen mit feinen Tropfen; beide Hälften laufen zu ihren
+    Rändern in u durchsichtig aus.
+    """
+
+    core_color: ByteImage
+    core_normal: ByteImage
+    spray_color: ByteImage
+
+
+def grid_faces(rows: int, cols: int, *, flip: bool = False) -> IndexArray:
     """Dreiecke eines Gitters; Normale = Spaltenrichtung × Zeilenrichtung, mit ``flip`` umgekehrt."""
     grid = np.arange(rows * cols).reshape(rows, cols)
     a, b = grid[:-1, :-1].ravel(), grid[:-1, 1:].ravel()
@@ -58,21 +72,46 @@ def _grid_faces(rows: int, cols: int, *, flip: bool = False) -> IndexArray:
 
 
 def build_water_textures(seed: int) -> WaterTextures:
-    """Wellen (512²) und Wasserfallschleier (256 × 1024, Fasern längs) als kachelnde Texturen."""
+    """Wellen (512²) als kachelnde Normal-Map."""
     ripples = periodic_noise(512, 512, seed, exponent=3.2, shortest=6.0)
-    ripple_normal = encode_normal(height_to_normal(ripples, strength=0.9))
+    return WaterTextures(encode_normal(height_to_normal(ripples, strength=0.9)))
 
+
+def build_fall_textures(seed: int) -> FallTextures:
+    """Fasern des Wasserkörpers mit Normal-Map und Gischt-Atlas als kachelnde Texturen."""
     fibers = periodic_noise(1024, 256, seed + 1, exponent=2.4, stretch=(1.0, 9.0), shortest=2.0)
     churn = periodic_noise(1024, 256, seed + 2, exponent=2.8, stretch=(1.0, 2.0), shortest=3.0)
+    rank = np.argsort(np.argsort(fibers, axis=None)).reshape(fibers.shape) / (fibers.size - 1.0)
+    across = (np.arange(256) + 0.5) / 256.0
+    edge = np.minimum(across, 1.0 - across)[None, :]
+    holes = rank < FALL_HOLES + (1.0 - FALL_HOLES) * (1.0 - smoothstep(0.0, FALL_FRINGE, edge))
+    alpha = np.where(holes, 0.0, 0.55 + 0.45 * smoothstep(FALL_HOLES, 1.0, rank))
     foam = smoothstep(0.2, 1.6, 0.7 * fibers + 0.5 * churn)
-    alpha = np.clip(0.55 + 0.3 * fibers + 0.25 * foam, 0.0, 1.0)
-    base = srgb_to_linear([0.62, 0.80, 0.88])
-    white = srgb_to_linear([0.95, 0.98, 1.0])
-    linear = base[None, None, :] + (white - base)[None, None, :] * foam[..., None]
+    whiteness = np.clip(0.45 + 0.55 * foam + 0.12 * np.tanh(churn), 0.0, 1.0)
+    base = srgb_to_linear([0.70, 0.85, 0.94])
+    white = srgb_to_linear([0.97, 0.99, 1.0])
+    linear = base[None, None, :] + (white - base)[None, None, :] * whiteness[..., None]
+    core_color = _rgba(linear, alpha)
+    core_normal = encode_normal(height_to_normal(0.6 * fibers + 0.4 * churn, strength=0.6))
+
+    # Gischt-Atlas: links die Fasern in halber Zeilenauflösung, weich ausgeblendet
+    soft_rank = rank.reshape(512, 2, 256).mean(axis=1)
+    soft_linear = linear.reshape(512, 2, 256, 3).mean(axis=1)
+    soft_alpha = (0.45 + 0.55 * smoothstep(0.1, 0.9, soft_rank)) * smoothstep(0.0, 0.2, edge)
+    # rechts Wolkenballen, dichte Kerne weiß, dünne Ränder kühler, mit feinen Tropfen
+    puffs = periodic_noise(512, 256, seed + 3, exponent=3.6, shortest=4.0)
+    droplets = periodic_noise(512, 256, seed + 4, exponent=1.0, shortest=2.0)
+    haze = srgb_to_linear([0.88, 0.92, 0.96])
+    puff_linear = haze[None, None, :] + (white - haze)[None, None, :] * smoothstep(-0.8, 1.2, puffs)[..., None]
+    puff_alpha = smoothstep(-0.6, 1.4, puffs) * (0.75 + 0.25 * smoothstep(-1.0, 1.5, droplets)) * smoothstep(0.0, 0.2, edge)
+    spray = np.concatenate([_rgba(soft_linear, soft_alpha), _rgba(puff_linear, puff_alpha)], axis=1)
+    return FallTextures(core_color, core_normal, spray)
+
+
+def _rgba(linear: FloatArray, alpha: FloatArray) -> ByteImage:
+    """Lineare Farbe und Alpha als sRGB-RGBA-Bild."""
     srgb = linear_to_srgb(linear.reshape(-1, 3)).reshape(linear.shape)
-    fall_color = encode_linear(np.concatenate([srgb, alpha[..., None]], axis=-1))
-    fall_normal = encode_normal(height_to_normal(0.6 * fibers + 0.4 * churn, strength=0.6))
-    return WaterTextures(ripple_normal, fall_color, fall_normal)
+    return encode_linear(np.concatenate([srgb, alpha[..., None]], axis=-1))
 
 
 def pond_spacing(terrain: IslandTerrain) -> float:
@@ -97,7 +136,7 @@ def build_pond(terrain: IslandTerrain, spacing: float | None = None) -> WaterMes
     sample = terrain.sample(points)
     clearance = terrain.distance(points)  # > 0: Wasserspiegel liegt frei über dem Grund
     wet = ((clearance > 0.0) & (sample.pond < 0.4)).reshape(gx.shape)
-    faces = _grid_faces(*gx.shape)
+    faces = grid_faces(*gx.shape)
     keep = wet.ravel()[faces].any(axis=1)
     return _flat_water(points, faces[keep], depth=np.clip(clearance, 0.0, None))
 
@@ -137,62 +176,11 @@ def build_stream(terrain: IslandTerrain, step: float = 0.4) -> WaterMesh | None:
     return WaterMesh(
         vertices=flat,
         normals=np.tile([0.0, 1.0, 0.0], (len(flat), 1)),
-        faces=_grid_faces(len(samples), len(across)),
+        faces=grid_faces(len(samples), len(across)),
         uvs=np.stack([u.ravel(), v.ravel()], axis=1),
         tangents=tangents,
         colors=_with_alpha(alpha),
         flow_speed=1.1 / RIPPLE_TILE,
-    )
-
-
-def build_waterfall(terrain: IslandTerrain, *, mist: bool = False, rows: int = 64, columns: int = 9) -> WaterMesh | None:
-    """Wasserfall ab der Bachmündung: Wurfparabel, nach unten breiter und durchsichtiger.
-
-    ``mist`` erzeugt den äußeren Gischtschleier: breiter, weiter außen, schneller verblassend.
-    ``rows``/``columns`` sind die Stützpunkte längs und quer (weniger für ferne Detailstufen).
-    """
-    outlet = terrain.stream_outlet()
-    if outlet is None:
-        return None
-    depth = terrain.dims.depth
-    speed = 1.6 + 0.02 * terrain.dims.radius
-    fall = 1.05 * depth
-    duration = np.sqrt(2.0 * fall / GRAVITY)
-    t = duration * np.linspace(0.0, 1.0, rows) ** 1.6  # dichter am Ansatz, wo sich die Kurve biegt
-    out = np.array([outlet.direction[0], 0.0, outlet.direction[1]])
-    centre = outlet.position[None, :] + speed * t[:, None] * out[None, :] - 0.5 * GRAVITY * (t * t)[:, None] * np.array([0.0, 1.0, 0.0])
-    tangents, normals, binormals = transport_frames(centre, initial_normal=out)
-    side = np.cross(np.array([0.0, 1.0, 0.0]), out)
-    side /= np.linalg.norm(side)
-    drop = outlet.position[1] - centre[:, 1]
-    spread = 1.0 + drop / (0.8 * depth)
-    half_width = outlet.half_width * (0.9 * spread + (0.6 if mist else 0.0)) * (1.25 if mist else 1.0)
-    across = np.linspace(-1.0, 1.0, columns)
-    bulge = (0.22 if mist else 0.12) * (1.0 - across**2)
-    outward = _normalized(np.cross(tangents, side[None, :]))
-    outward *= np.sign((outward * out[None, :]).sum(axis=1, keepdims=True) + 1e-9)
-    offset = 0.25 * outlet.half_width if mist else 0.0
-    vertices = (
-        centre[:, None, :]
-        + (half_width[:, None] * across[None, :])[..., None] * side[None, None, :]
-        + ((half_width[:, None] * bulge[None, :]) + offset)[..., None] * outward[:, None, :]
-    )
-    arc = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(centre, axis=0), axis=1))])
-    u = np.broadcast_to((across * 0.5 + 0.5)[None, :] * (1.6 if mist else 1.0), vertices.shape[:2])
-    v = np.broadcast_to(arc[:, None] / FALL_TILE, vertices.shape[:2])
-    fade_end = 0.55 if mist else 0.95
-    alpha = (1.0 - smoothstep(0.25, fade_end, drop / fall))[:, None] * (1.0 - smoothstep(0.7, 1.0, np.abs(across)))[None, :]
-    alpha = alpha * (0.35 if mist else 0.95)
-    tangent_rows = np.broadcast_to(np.concatenate([side, [1.0]])[None, None, :], (*vertices.shape[:2], 4))
-    normal_rows = np.broadcast_to(outward[:, None, :], vertices.shape)
-    return WaterMesh(
-        vertices=vertices.reshape(-1, 3),
-        normals=normal_rows.reshape(-1, 3).copy(),
-        faces=_grid_faces(*vertices.shape[:2], flip=True),
-        uvs=np.stack([u.ravel(), v.ravel()], axis=1),
-        tangents=tangent_rows.reshape(-1, 4).copy(),
-        colors=np.concatenate([np.ones((alpha.size, 3)), alpha.reshape(-1, 1)], axis=1),
-        flow_speed=speed * 2.2 / FALL_TILE,
     )
 
 
@@ -211,12 +199,8 @@ def merge_water(meshes: list[WaterMesh]) -> WaterMesh:
 
 
 def reduced_water_textures(textures: WaterTextures, factor: int) -> WaterTextures:
-    """Verkleinert die Wassertexturen um ``factor`` je Kante (2 × 2-Mittelung, Normalen neu normiert)."""
-    return WaterTextures(
-        ripple_normal=_shrink_normal(textures.ripple_normal, factor),
-        fall_color=_shrink(textures.fall_color, factor),
-        fall_normal=_shrink_normal(textures.fall_normal, factor),
-    )
+    """Verkleinert die Wellen-Normal-Map um ``factor`` je Kante (Mittelung, Normalen neu normiert)."""
+    return WaterTextures(ripple_normal=_shrink_normal(textures.ripple_normal, factor))
 
 
 def _shrink(image: ByteImage, factor: int) -> ByteImage:
@@ -249,7 +233,3 @@ def _flat_water(points: FloatArray, faces: IndexArray, depth: FloatArray) -> Wat
 def _with_alpha(alpha: FloatArray) -> FloatArray:
     """Weiße Vertexfarbe mit Alpha; die Wasserfarbe trägt der Materialfaktor, flaches Wasser bleibt klarer."""
     return np.concatenate([np.ones((len(alpha), 3)), alpha[:, None]], axis=1)
-
-
-def _normalized(vectors: FloatArray) -> FloatArray:
-    return vectors / np.maximum(np.linalg.norm(vectors, axis=-1, keepdims=True), 1e-12)

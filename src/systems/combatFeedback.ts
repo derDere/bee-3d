@@ -141,7 +141,7 @@ export class CombatFeedback {
       case EventKinds.aggro:
         if (atMe) {
           const taunt = FlyTaunts[event.aux % FlyTaunts.length] ?? "Bzzz!";
-          c.log.add(`${this.flyName(event.sourceId)}: „${taunt}“`, "taunt");
+          c.log.add(`${this.flyName(event.sourceId)}: “${taunt}”`, "taunt");
         }
         break;
       case EventKinds.buzz:

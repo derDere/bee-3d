@@ -18,6 +18,9 @@ export class SelectionBubble {
   private readonly distance: NumberSlot;
   private readonly speed: NumberSlot;
   private readonly hpRow: HTMLDivElement;
+  /** Herz für Lebenspunkte, Pollen für den Vorrat eines Blumenfelds. */
+  private readonly hpIcon: IconSlot;
+  private readonly hpHint: HintSlot;
   private readonly hpFill: StyleSlot;
   private readonly hpPercent: NumberSlot;
   private readonly detailElement: HTMLParagraphElement;
@@ -45,8 +48,9 @@ export class SelectionBubble {
     clear.addEventListener("click", () => actions.select(undefined));
 
     this.hpRow = createElement("div", "sel-hp", this.element);
-    setHint(this.hpRow, "Health");
-    createIcon("heart", "sel-hp-icon", this.hpRow);
+    this.hpHint = new HintSlot(this.hpRow);
+    this.hpIcon = new IconSlot(this.hpRow, "sel-hp-icon");
+    this.hpIcon.set("heart");
     const bar = createElement("span", "sel-hp-bar", this.hpRow);
     this.hpFill = new StyleSlot(createElement("span", "sel-hp-fill", bar), "transform");
     this.hpPercent = new NumberSlot(createElement("span", "sel-hp-value", this.hpRow), formatPercent, percentStep);
@@ -73,6 +77,9 @@ export class SelectionBubble {
     const hp = selection.hpRatio;
     setVisible(this.hpRow, hp !== undefined);
     if (hp !== undefined) {
+      const pollen = selection.ref.type === "flowerPatch";
+      this.hpIcon.set(pollen ? "pollen" : "heart");
+      this.hpHint.set(pollen ? "Pollen left" : "Health");
       const step = percentStep(hp);
       if (step !== this.hpStep) {
         this.hpStep = step;

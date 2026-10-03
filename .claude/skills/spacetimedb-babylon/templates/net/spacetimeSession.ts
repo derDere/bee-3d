@@ -132,12 +132,19 @@ export class SpacetimeSession {
           return;
         }
         this.pending = undefined;
-        if (error.message.startsWith('Failed to verify token')) {
-          // z. B. nach einem Schlüsselwechsel auf dem Server: ohne Löschen scheitert jeder Versuch
-          this.tokens.clear();
-          this.listener.onTokenRejected();
-        }
         this.listener.onLost(error);
+        if (error.message.startsWith('Failed to verify token')) {
+          // Das SDK meldet jeden Fehler beim Token-Tausch so, auch 502/503 eines neu startenden Servers.
+          // Gelöscht wird nur bei echter Ablehnung, sonst ginge der Fortschritt eines Gastes verloren.
+          void this.isTokenRejected().then((rejected) => {
+            if (rejected) {
+              this.tokens.clear();
+              this.listener.onTokenRejected();
+            }
+            this.scheduleReconnect();
+          });
+          return;
+        }
         this.scheduleReconnect();
       })
       .onDisconnect((_ctx: ErrorContext, error?: Error) => {
@@ -150,6 +157,22 @@ export class SpacetimeSession {
       })
       .build();
     this.pending = built;
+  }
+
+  /** Fragt den Token-Tausch selbst an: nur 401/403 heißt „Token abgelehnt“; 5xx, 429 und Netzfehler sind vorübergehend. */
+  private async isTokenRejected(): Promise<boolean> {
+    const token = this.tokens.load();
+    if (token === undefined) {
+      return false;
+    }
+    const url = new URL('v1/identity/websocket-token', this.options.uri.endsWith('/') ? this.options.uri : `${this.options.uri}/`);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    try {
+      const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      return response.status === 401 || response.status === 403;
+    } catch {
+      return false;
+    }
   }
 
   private scheduleReconnect(): void {

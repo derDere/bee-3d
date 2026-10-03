@@ -27,6 +27,8 @@ export const MistVolumeCount = 16;
 export const ClearingCount = 8;
 /** Lichtproben im günstigen Lichtweg (dünnes Medium, weitgehend verdeckter Strahl). */
 const CheapLightSamples = 2;
+/** Zusätzliche Verkleinerung der Wolkentextur, solange die Kamera im dichten Wolkenmedium steckt. */
+const InsideMediumDownscale = 1.5;
 
 /** Eine wolkenfreie Lichtung (Kugel mit weichem Rand) um ein Nest oder einen Stock (Lichtung). */
 export interface CloudClearing {
@@ -128,6 +130,7 @@ export class CloudRenderer {
   private readonly cameraScope: CameraRenderScope;
   private enabled = true;
   private temporalEnabled = true;
+  private insideMedium = false;
   private readonly matrixScratch = new Matrix();
   private readonly viewProjectionNoTranslation = new Matrix();
   private readonly inverseViewProjection = new Matrix();
@@ -201,6 +204,18 @@ export class CloudRenderer {
   public setTemporal(enabled: boolean): void {
     this.temporalEnabled = enabled;
     this.historyValid = false;
+  }
+
+  /**
+   * Kamera im dichten Wolkenmedium: Der Nebel zeigt kaum Detail, die Wolkentextur wird gröber gerechnet
+   * (Faktor `InsideMediumDownscale` auf die Verkleinerung der Qualitätsstufe).
+   */
+  public setInsideMedium(inside: boolean): void {
+    if (inside === this.insideMedium) {
+      return;
+    }
+    this.insideMedium = inside;
+    this.createTargets();
   }
 
   /** Wendet eine neue Qualitätsstufe an (neue Zielgrößen und Schrittzahlen). */
@@ -283,8 +298,9 @@ export class CloudRenderer {
     this.current?.dispose();
     this.history?.[0].dispose();
     this.history?.[1].dispose();
-    const width = Math.max(16, Math.ceil(this.engine.getRenderWidth() / this.quality.downscale));
-    const height = Math.max(16, Math.ceil(this.engine.getRenderHeight() / this.quality.downscale));
+    const downscale = this.quality.downscale * (this.insideMedium ? InsideMediumDownscale : 1);
+    const width = Math.max(16, Math.ceil(this.engine.getRenderWidth() / downscale));
+    const height = Math.max(16, Math.ceil(this.engine.getRenderHeight() / downscale));
     const create = (name: string): RenderTargetTexture => {
       const target = new RenderTargetTexture(name, { width, height }, this.scene, {
         generateMipMaps: false,

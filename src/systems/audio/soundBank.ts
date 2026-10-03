@@ -81,7 +81,7 @@ export class SoundBank {
   public variants(id: ClipId): readonly AudioBuffer[] {
     const list = this.buffers.get(id);
     if (list === undefined || list.length === 0) {
-      throw new Error(`Klangbank: Klang „${id}“ fehlt.`);
+      throw new Error(`Sound bank: sound "${id}" is missing.`);
     }
     return list;
   }

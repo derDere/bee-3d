@@ -40,7 +40,7 @@ export class AchievementPage implements StationPage {
   private readonly total: NumberSlot;
 
   public constructor() {
-    this.element = createElement("div", "hall-page-body achievement-page");
+    this.element = createElement("div", "achievement-page");
     const summary = createElement("div", "achievement-summary", this.element);
     setHint(summary, "Medals earned");
     this.earned = new NumberSlot(createElement("span", "achievement-earned", summary), formatInteger);

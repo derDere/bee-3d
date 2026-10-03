@@ -58,7 +58,7 @@ export class LeaderboardPage implements StationPage {
   private readonly empty: HTMLParagraphElement;
 
   public constructor() {
-    this.element = createElement("div", "hall-page-body leaderboard-page");
+    this.element = createElement("div", "leaderboard-page");
     this.list = createElement("ol", "rank-list", this.element);
     this.empty = createElement("p", "hall-note", this.element, "Nobody has delivered honey yet. Be the first bee!");
   }

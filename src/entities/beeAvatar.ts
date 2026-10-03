@@ -16,6 +16,17 @@ const ModelStingerTip = 0.38;
 /** Modelldatei der Biene relativ zu `public/assets/models/`. */
 export const BeeModelFile = "bee.glb";
 const LegNodeNames = ["Leg_Front_L", "Leg_Front_R", "Leg_Middle_L", "Leg_Middle_R", "Leg_Hind_L", "Leg_Hind_R"] as const;
+/** Seitliches Pendeln um die Flugbahn im Schweben bzw. im Reiseflug (Meter). */
+const FlutterHoverSway = 0.03;
+const FlutterFlightSway = 0.05;
+/** Ab diesem Tempo fliegt die Biene ruhig (Warp, Meter je Sekunde). */
+const FlutterMaxSpeed = 40;
+/**
+ * Render-Gruppe der Bienen: nach dem Wolken-Compositor (Gruppe 0). Flügel und Geist sind durchscheinend und
+ * schreiben keine Tiefe; in Gruppe 0 malte der Compositor die Wolken dahinter über sie. Die Tiefe der Gruppe 0
+ * bleibt erhalten, Inseln verdecken die Bienen weiterhin.
+ */
+const BeeRenderingGroup = 1;
 
 /** Sichtbarer Zustand einer Biene (Bienenzustand). */
 export interface BeeLook {
@@ -32,7 +43,9 @@ export interface BeeLook {
 export class BeeAvatar {
   public readonly root: TransformNode;
   private readonly entries: InstantiatedEntries;
-  private readonly gltfRoot: TransformNode;
+  /** Zwischenknoten für das Flattern um die Flugbahn (Flatterknoten). */
+  private readonly flutter: TransformNode;
+  private readonly flutterPhase = Math.random() * Math.PI * 2;
   private readonly wingFlap: AnimationGroup | undefined;
   private readonly eyes: [TransformNode | undefined, TransformNode | undefined];
   private readonly legs: Array<TransformNode | undefined>;
@@ -41,7 +54,7 @@ export class BeeAvatar {
   private readonly meshes: AbstractMesh[];
   private readonly variants: BoundVariants;
   private mouthOpen = 0;
-  private hoverTime = Math.random() * 10;
+  private flutterTime = Math.random() * 10;
   private readonly rotation = new Quaternion();
   private readonly scratch = new Vector3();
 
@@ -51,10 +64,11 @@ export class BeeAvatar {
     this.root.rotationQuaternion = Quaternion.Identity();
     const gltfRoot = entries.rootNodes[0] as TransformNode | undefined;
     if (gltfRoot === undefined) {
-      throw new Error("Bienenmodell ohne Wurzelknoten");
+      throw new Error("Bee model has no root node.");
     }
-    this.gltfRoot = gltfRoot;
-    gltfRoot.parent = this.root;
+    this.flutter = new TransformNode(`${name}Flutter`, scene);
+    this.flutter.parent = this.root;
+    gltfRoot.parent = this.flutter;
     gltfRoot.scaling.scaleInPlace(BeeLength / ModelLength);
     const nodes = gltfRoot.getChildTransformNodes(false);
     const byName = (suffix: string): TransformNode | undefined => nodes.find((node) => node.name.endsWith(suffix));
@@ -69,6 +83,7 @@ export class BeeAvatar {
       .filter((target): target is MorphTarget => target !== undefined && target !== null);
     for (const mesh of this.meshes) {
       mesh.isPickable = false;
+      mesh.renderingGroupId = BeeRenderingGroup;
     }
     this.variants = table.bind(this.meshes, name);
     this.wingFlap = entries.animationGroups.find((group) => group.name.endsWith("WingFlap"));
@@ -81,7 +96,7 @@ export class BeeAvatar {
     await library.load(BeeModelFile);
     const avatar = BeeAvatar.create(scene, library, name);
     if (avatar === undefined) {
-      throw new Error("Bienenmodell fehlt");
+      throw new Error("Bee model could not be loaded.");
     }
     return avatar;
   }
@@ -111,7 +126,7 @@ export class BeeAvatar {
     this.mouthOpen = look.laser && !look.ghost ? 1 : 0;
   }
 
-  /** Je Frame: Flügeltempo, Mund, leichtes Schweben im Stand. */
+  /** Je Frame: Flügeltempo, Mund und Flattern um die Flugbahn (im Stand weiches Schweben). */
   public update(dt: number, speed: number, hovering: boolean): void {
     if (this.wingFlap !== undefined) {
       this.wingFlap.speedRatio = 0.8 + Math.min(1.2, speed / 12);
@@ -120,8 +135,32 @@ export class BeeAvatar {
     for (const morph of this.mouth) {
       morph.influence += (this.mouthOpen - morph.influence) * blend;
     }
-    this.hoverTime += dt;
-    this.gltfRoot.position.y = hovering ? Math.sin(this.hoverTime * 2.4) * 0.012 : 0;
+    this.updateFlutter(dt, speed, hovering);
+  }
+
+  /**
+   * Flattern (Flugbild einer Biene statt eines gleitenden Raumschiffs): seitliches Pendeln mit passendem Rollen,
+   * leichtes Auf und Ab und kleine Gierausschläge um die Flugbahn; im Stand ein weiches Schweben in Achten.
+   * Die Kamera folgt der Flugbahn, die Figur bewegt sich sichtbar darum herum.
+   */
+  private updateFlutter(dt: number, speed: number, hovering: boolean): void {
+    this.flutterTime += dt;
+    const t = this.flutterTime;
+    const phase = this.flutterPhase;
+    const calm = speed > FlutterMaxSpeed ? 0 : 1;
+    const cruise = hovering ? 0 : Math.min(1, speed / 6);
+    const sway = (FlutterHoverSway + (FlutterFlightSway - FlutterHoverSway) * cruise) * calm;
+    const side = Math.sin(t * 3.6 + phase) + 0.25 * Math.sin(t * 9.7 + 1.7 * phase);
+    this.flutter.position.set(
+      side * sway,
+      Math.sin(t * 6.1 + 0.6 * phase) * sway * 0.5,
+      Math.sin(t * 1.8 + 2.1 * phase) * sway * 0.6 * (1 - cruise),
+    );
+    this.flutter.rotation.set(
+      Math.sin(t * 4.3 + phase) * 0.05 * calm,
+      Math.sin(t * 2.2 + 0.4 * phase) * 0.08 * calm,
+      -Math.cos(t * 3.6 + phase) * 0.14 * calm,
+    );
   }
 
   /** Weltlage eines Auges (0 = links, 1 = rechts) etwas vor der Pupille. */

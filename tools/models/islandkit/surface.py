@@ -2,7 +2,10 @@
 
 Alle Farben werden linear gerechnet; die Palette wird in sRGB notiert. Die Zonen entstehen aus
 den Geländemerkmalen (``TerrainSample``), der Flächenneigung und der gebackenen Verdeckung.
-Steile Flächen auf dem Plateau (Felsstufe der Terrasse) zeigen Fels. Für ferne Detailstufen
+Steile Flächen auf dem Plateau (Felsstufe der Terrasse) zeigen Fels. Von der Kante hängen
+Moospolster und Ranken über Erdband und obere Felswand, in Gruppen rund um die Insel verschieden
+lang und unten ausgefranst; unter jedem Wasserfall (``islandkit.falls``) ist die Wand nass und
+ringsum bemoost. Für ferne Detailstufen
 färben ``PatchTint``-Flecken die Wiese dort, wo in LOD0 Blumenfelder stehen. Die Palette der
 Fliegennester (``ROT_PALETTE``) zeigt faulige, dunkle Erde mit violetten Flecken und giftgrünem
 Schleim.
@@ -12,12 +15,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 import numpy.typing as npt
 from modelkit.noise import Cellular, Fractal, hash01
 from modelkit.shading import smoothstep, srgb_to_linear
 
+from islandkit.falls import FallSource, plan_falls
 from islandkit.spec import Biome
 from islandkit.terrain import IslandTerrain, TerrainSample
 
@@ -31,6 +36,8 @@ class IslandPalette:
 
     ``bare_threshold`` steuert den Anteil kahler Stellen (kleiner = mehr kahle Erde),
     ``slime``/``blotch`` färben Schleim- und Fäulnisflecken auf dem Plateau (nur Nest-Inseln).
+    ``moss``/``moss_dark`` färben Moos auf Simsen und die hängenden Polster, ``vine`` die Ranken;
+    ``drape`` ist die Stärke der hängenden Polster und Ranken.
     """
 
     grass: Srgb = (0.34, 0.54, 0.17)
@@ -50,12 +57,15 @@ class IslandPalette:
     )
     rock_deep: Srgb = (0.30, 0.31, 0.37)
     moss: Srgb = (0.30, 0.43, 0.13)
+    moss_dark: Srgb = (0.19, 0.33, 0.08)
+    vine: Srgb = (0.10, 0.20, 0.05)
     sand: Srgb = (0.74, 0.66, 0.49)
     mud: Srgb = (0.27, 0.23, 0.16)
     pebble: Srgb = (0.66, 0.64, 0.60)
     bare_threshold: tuple[float, float] = (0.32, 0.5)
     slime: Srgb | None = None
     blotch: Srgb | None = None
+    drape: float = 1.0
 
 
 ROT_PALETTE = IslandPalette(
@@ -69,12 +79,15 @@ ROT_PALETTE = IslandPalette(
     rock_layers=((0.33, 0.30, 0.33), (0.36, 0.32, 0.34), (0.29, 0.28, 0.31), (0.34, 0.29, 0.30), (0.31, 0.30, 0.34)),
     rock_deep=(0.13, 0.13, 0.17),
     moss=(0.24, 0.34, 0.06),
+    moss_dark=(0.12, 0.15, 0.05),
+    vine=(0.09, 0.08, 0.06),
     sand=(0.24, 0.19, 0.15),
     mud=(0.12, 0.10, 0.08),
     pebble=(0.32, 0.30, 0.30),
     bare_threshold=(0.0, 0.3),
     slime=(0.38, 0.66, 0.06),
     blotch=(0.30, 0.10, 0.32),
+    drape=0.45,
 )
 
 
@@ -116,6 +129,9 @@ class _PaintNoises:
     speckle: Fractal
     slime: Fractal
     pebbles: Cellular
+    drapes: Fractal
+    strands: Fractal
+    vines: Fractal
 
     @staticmethod
     def create(seed: int, diameter: float, soil_depth: float) -> _PaintNoises:
@@ -131,6 +147,9 @@ class _PaintNoises:
             speckle=Fractal(seed + 10, 9.0, octaves=3),
             slime=Fractal(seed + 11, 0.45, octaves=4),
             pebbles=Cellular(seed + 7, 7.0, jitter=0.9),
+            drapes=Fractal(seed + 12, 1.0, octaves=2),
+            strands=Fractal(seed + 13, 1.6, octaves=3),
+            vines=Fractal(seed + 14, 2.4, octaves=2, ridged=True),
         )
 
 
@@ -151,7 +170,11 @@ class IslandPainter:
         self.tints = tuple(tints)
         dims = terrain.dims
         self._noise = _PaintNoises.create(terrain.spec.seed + 100, 2.0 * dims.radius, dims.soil_depth)
-        self._outlet = terrain.stream_outlet()
+
+    @cached_property
+    def falls(self) -> tuple[FallSource, ...]:
+        """Ansätze der Wasserfälle (nasse Spuren, Moos)."""
+        return plan_falls(self.terrain)
 
     def paint(
         self, points: FloatArray, normals: FloatArray, sample: TerrainSample, occlusion: FloatArray
@@ -194,8 +217,15 @@ class IslandPainter:
         color = _mix(color, self._sand(points), 0.9 * shore)
         roughness += (0.6 - roughness) * shore
 
-        # Nasse Felswand unter dem Wasserfall
-        wet = self._waterfall_wetness(points)
+        # Hängende Moospolster und Ranken über Erdband und Fels, dichter rings um die Wasserfälle
+        wet, damp = self._waterfall_wetness(points)
+        drape, vine = self._drapes(points, sample, damp)
+        hanging = (1.0 - grass) * (1.0 - bed)
+        color = _mix(color, self._drape_color(points), drape * hanging)
+        color = _mix(color, _uniform(self.palette.vine, len(points)), vine * hanging)
+        roughness += (0.95 - roughness) * np.maximum(drape, vine) * hanging
+
+        # Nasse Felswand unter den Wasserfällen
         color *= (1.0 - 0.45 * wet)[:, None]
         roughness += (0.3 - roughness) * wet
 
@@ -289,13 +319,52 @@ class IslandPainter:
             color = _mix(color, srgb_to_linear(tint.color), weight)
         return color
 
-    def _waterfall_wetness(self, points: FloatArray) -> FloatArray:
-        outlet = self._outlet
-        if outlet is None:
-            return np.zeros(len(points))
-        offset = points[:, [0, 2]] - outlet.position[[0, 2]]
-        across = offset @ np.array([-outlet.direction[1], outlet.direction[0]])
-        drop = outlet.position[1] - points[:, 1]
-        spread = 1.4 * outlet.half_width + 0.08 * np.clip(drop, 0.0, None)
-        falloff = 1.0 - smoothstep(0.0, 0.35 * self.terrain.dims.depth, drop)
-        return np.exp(-((across / spread) ** 2)) * smoothstep(-0.3, 0.3, drop) * falloff
+    def _drapes(self, points: FloatArray, sample: TerrainSample, damp: FloatArray) -> tuple[FloatArray, FloatArray]:
+        """Deckung hängender Moospolster und Ranken (0..1) unter der Kante.
+
+        Die Länge wechselt in Gruppen rund um die Insel (5–43 % der Tiefe) und je Strähne;
+        Polster laufen unten ausgefranst aus, Ranken hängen weiter hinab und werden dünner.
+        """
+        dims, noise = self.terrain.dims, self._noise
+        theta = np.arctan2(points[:, 2], points[:, 0])
+        # Gruppen hängen nur vom Winkel ab: rund acht Gruppen je Umlauf, gleich welche Inselgröße
+        ring = np.stack([np.cos(theta), np.zeros_like(theta), np.sin(theta)], axis=1) * 1.3
+        groups = smoothstep(-0.15, 0.35, noise.drapes(ring))
+        hanging = noise.strands(points * np.array([1.0, 0.06, 1.0]))
+        length = dims.depth * (0.05 + 0.38 * groups) * (0.45 + 0.55 * smoothstep(-0.4, 0.5, hanging))
+        below = sample.below_top - 0.5 * dims.lip_depth
+        start = smoothstep(0.0, 0.5 * dims.lip_depth, below)
+        body = (1.0 - smoothstep(0.65, 1.0, below / np.maximum(length, 1e-3))) * start
+        clumps = 0.55 + 0.45 * smoothstep(-0.3, 0.3, noise.clumps(points * 0.5))
+        drape = smoothstep(0.22, 0.5, np.maximum(body * clumps, 0.85 * damp)) * self.palette.drape
+        lines = smoothstep(0.82, 0.9, noise.vines(points * np.array([1.0, 0.03, 1.0])))
+        reach = 1.6 * length
+        vine = lines * (1.0 - smoothstep(0.5, 1.0, below / np.maximum(reach, 1e-3))) * start * groups * self.palette.drape
+        return drape, vine
+
+    def _drape_color(self, points: FloatArray) -> FloatArray:
+        """Farbe der Moospolster: dunkles und helles Moos fleckig gemischt."""
+        palette = self.palette
+        tone = smoothstep(-0.35, 0.35, self._noise.moss(points * 2.0))
+        return _mix(_uniform(palette.moss_dark, len(points)), srgb_to_linear(palette.moss), tone)
+
+    def _waterfall_wetness(self, points: FloatArray) -> tuple[FloatArray, FloatArray]:
+        """Nässe der Wand unter den Wasserfällen (0..1) und Feuchte ringsum, auf der Moos wächst.
+
+        Betroffen ist nur die Wand hinter dem Fall, nicht die gegenüberliegende Seite der Insel.
+        """
+        wet = np.zeros(len(points))
+        damp = np.zeros(len(points))
+        dims = self.terrain.dims
+        for source in self.falls:
+            offset = points - source.position[None, :]
+            across = offset @ source.side
+            drop = -offset[:, 1]
+            near = 1.0 - smoothstep(0.25 * dims.radius, 0.5 * dims.radius, -(offset @ source.outward))
+            spread = 1.4 * source.half_width + 0.08 * np.clip(drop, 0.0, None)
+            reach = (0.35 if source.kind == "outlet" else 0.2) * dims.depth
+            below = smoothstep(-0.3, 0.3, drop) * (1.0 - smoothstep(0.0, reach, drop)) * near
+            wet = np.maximum(wet, np.exp(-((across / spread) ** 2)) * below)
+            around = smoothstep(-1.5, 0.5, drop) * (1.0 - smoothstep(0.0, 1.4 * reach, drop)) * near
+            damp = np.maximum(damp, np.exp(-((across / (2.6 * spread)) ** 2)) * around)
+        return wet, damp

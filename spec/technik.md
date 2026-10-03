@@ -66,10 +66,10 @@ docker/                        Konfiguration der Container
 | Baustein | Technik |
 |---|---|
 | Himmel | Atmosphäre-Addon (`originHeight` 1 km), eine Hauptlicht-Richtung mit Sonne-Mond-Übergabe |
-| Sonne, Mond, Sterne | Billboards bzw. Sternkugel in Gruppe 0 hinter dem Himmels-Compositor |
-| Wolken | eigener Raymarcher (GLSL, unter WebGPU über Babylons Shader-Übersetzung): Wolkenmassen aus 3D-Rauschen im ganzen Kugelvolumen, Verdichtung zum Kugelrand, Gewitterzellen, Nebelvolumen an Inseln; Renderdistanz 5,6 km, dahinter analytische Wolkenhülle auf dem Kugelrand (oben mit Lücken); reduzierte Auflösung, zeitliche Wiederverwendung, tiefenbewusstes Hochskalieren, Compositor nach Gruppe 0 |
+| Sonne, Mond, Sterne | Billboards bzw. Sternkugel in Gruppe 0 hinter dem Himmels-Compositor; Sonne (2°) mit leuchtendem Saum und Strahlenkranz, am Horizont größer als Ball; Mond (5°) mit Phase, Erdschein und hellem Hof |
+| Wolken | eigener Raymarcher (GLSL, unter WebGPU über Babylons Shader-Übersetzung): Wolkenmassen aus 3D-Rauschen im ganzen Kugelvolumen, Verdichtung zum Kugelrand, Gewitterzellen, Nebelvolumen an Inseln; Renderdistanz 5,6 km, dahinter analytische Wolkenhülle auf dem Kugelrand (unten ein beleuchtetes Wolkenmeer aus Haufenwolken-Kuppen, oben mit Lücken); Regenbogen auf einem Regenvorhang im selben Strahl; reduzierte Auflösung (im dichten Wolkenmedium an der Kamera 1,5-fach gröber, Hysterese 0,35/0,15), zeitliche Wiederverwendung, tiefenbewusstes Hochskalieren, Compositor nach Gruppe 0; Bienen zeichnen in Gruppe 1 danach (durchscheinende Flügel und Geist bleiben vor Wolken sichtbar) |
 | Rauschdaten | 3D-Formrauschen (Perlin-Worley) und Detailrauschen, beim Start in einem Web Worker erzeugt; dieselben Daten liefert die CPU-Dichtefunktion für Flug-im-Wolken-Effekte |
-| Lichtstrahlen | Radialunschärfe mit Wolkenmaske (Sonne und Mond) |
+| Lichtstrahlen | Radialunschärfe mit Wolkenmaske (Sonne und Mond): Quelle eng um die Scheibe plus Silberränder der Wolken, beim Einmischen Strahlenkontrast über den Winkel zur Quelle |
 | Schatten | Kaskaden-Schatten für Inselkörper, Bäume, Felsen, Bienen, Fliegen, Stöcke; Gras und Blumen ohne Schatten |
 | Post-Processing | HDR, Bloom, Tonemapping, Color Curves je Tagesphase, Dithering, MSAA/FXAA |
 | Inseln | glb-Varianten, skaliert und gedreht instanziert; LOD0 als Modellkopie für die nächsten Inseln (Anzahl und Reichweite je Stufe), Bepflanzung mit der Entfernung ausgedünnt; LOD1/LOD2 als Thin Instances je Variante |
@@ -101,8 +101,8 @@ gespeichert im `localStorage`.
 |---|---|
 | Frame | 16,6 ms |
 | Himmel gesamt | ≤ 4,5 ms |
-| Draw Calls | ≤ 600 |
-| Sichtbare Dreiecke | ≤ 1,5 Mio. |
+| Draw Calls | ≤ 650 |
+| Sichtbare Dreiecke | ≤ 4 Mio. (Gras, Blumen und Bäume als GPU-Instanzen) |
 | Weltakt des Servers | p95 ≤ 10 ms bei 50 Spielern |
 | Download je Client | ≤ 30 KB/s in Kämpfen |
 
@@ -137,7 +137,7 @@ steigt dann linear mit der Spielerzahl in Sichtweite.
 | `closeUp` | Biene nah, Seitenansicht |
 | `lookDown` | schräger Blick nach unten in die Wolken |
 | `islandBand` | zwischen Inseln und Haufenwolken |
-| `towardSun` / `awayFromSun` | zur Sonne bzw. von ihr weg |
+| `towardSun` / `awayFromSun` | zur Sonne (nach Sonnenhöhe geneigt, Sonne im oberen Bilddrittel) bzw. von ihr weg |
 | `insideCloud` | mitten in einer Wolke |
 | `belowCloudBase` | unter einer Wolkenbasis |
 | `hive` | Stock „Queen's Hive“ von außen |

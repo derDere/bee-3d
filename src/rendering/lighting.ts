@@ -104,9 +104,16 @@ export async function createOutdoorLightingAsync(scene: Scene, camera: Camera, q
   return { keyLight, fill, atmosphere, shadows, pipeline, curves };
 }
 
+/**
+ * Anteil der Sättigung, den die Lichter zusätzlich bekommen: Wolkenlichter leuchten farbig, der Weißpunkt (Sonne,
+ * Mond) bleibt weiß, weil Sättigung Grau und Weiß nicht verändert.
+ */
+const HighlightsSaturationShare = 0.6;
+
 /** Färbt die Tonkurven nach Farbskript und Wetter (Farbkorrektur). */
 export function applyGrading(curves: ColorCurves, saturation: number, highlightsHue: number, highlightsDensity: number, shadowsHue: number, shadowsDensity: number): void {
   curves.globalSaturation = saturation - 100;
+  curves.highlightsSaturation = (saturation - 100) * HighlightsSaturationShare;
   curves.highlightsHue = highlightsHue;
   curves.highlightsDensity = highlightsDensity;
   curves.shadowsHue = shadowsHue;

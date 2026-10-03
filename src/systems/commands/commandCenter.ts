@@ -28,6 +28,10 @@ export interface CommandEnvironment {
   online(): boolean;
   /** Freies Zielen beginnt: Laserstrahlen in Zielrichtung zeigen, solange es dauert. */
   startFreeAimBeams(): void;
+  /** Objekt, das die Kamera ansieht; undefined = eigene Biene (Ansehen). */
+  lookTarget(): EntityRef | undefined;
+  /** Richtet die Kamera auf ein Objekt oder zurück auf die eigene Biene (Ansehen). */
+  lookAt(ref: EntityRef | undefined): void;
   showContextMenu(x: number, y: number, entries: readonly ContextMenuEntry[], title?: string): void;
 }
 
@@ -82,7 +86,7 @@ export class CommandCenter {
   public lock(ref: EntityRef): void {
     const result = this.env.targeting.lock(ref);
     const object = this.env.objects.get(refKey(ref));
-    const name = object?.name ?? "Ziel";
+    const name = object?.name ?? "Target";
     switch (result) {
       case "started":
         this.env.audio.playUi("lock");
@@ -252,7 +256,7 @@ export class CommandCenter {
     const entries: ContextMenuEntry[] = [];
     if (object === undefined) {
       entries.push({ icon: "flyHere", label: "Fly this way", enabled: true, run: () => this.flyDirection(direction) });
-      entries.push({ icon: "stop", label: "Stop", hotkey: "Ctrl+Space", enabled: true, run: () => this.command("stop") });
+      entries.push({ icon: "stop", label: "Stop", hotkey: "Space", enabled: true, run: () => this.command("stop") });
       entries.push({ icon: "home", label: "Return home", enabled: true, run: () => this.returnHome() });
       this.env.showContextMenu(x, y, entries);
       return;
@@ -261,17 +265,23 @@ export class CommandCenter {
     const locked = this.env.targeting.hasLock(object.key);
     entries.push({ icon: "select", label: `Select ${object.name}`, enabled: true, run: () => this.select(object.ref) });
     entries.push({ icon: "approach", label: "Approach", hotkey: "Q", enabled: true, run: () => this.command("approach", object.ref) });
-    for (const orbit of OrbitChoices) {
-      entries.push({ icon: "orbit", label: `Orbit at ${orbit} m`, detail: `${orbit} m`, hotkey: orbit === this.orbitDistance ? "W" : undefined, enabled: true, run: () => this.command("orbit", object.ref, orbit) });
-    }
-    for (const keep of KeepRangeChoices) {
-      entries.push({ icon: "keepRange", label: `Keep range at ${keep} m`, detail: `${keep} m`, hotkey: keep === this.keepRangeDistance ? "E" : undefined, enabled: true, run: () => this.command("keepRange", object.ref, keep) });
-    }
+    // Je ein Blatt mit dem eingestellten Abstand; andere Abstände bietet der Befehlsring der Auswahl an
+    const orbit = this.orbitDistance;
+    const keep = this.keepRangeDistance;
+    entries.push({ icon: "orbit", label: `Orbit at ${orbit} m`, detail: `${orbit} m`, hotkey: "W", enabled: true, run: () => this.command("orbit", object.ref, orbit) });
+    entries.push({ icon: "keepRange", label: `Keep range at ${keep} m`, detail: `${keep} m`, hotkey: "E", enabled: true, run: () => this.command("keepRange", object.ref, keep) });
     entries.push({ icon: "align", label: "Align", hotkey: "A", enabled: true, run: () => this.command("align", object.ref) });
     entries.push({ icon: "warp", label: "Warp", hotkey: "S", enabled: distance >= WarpMinDistance, run: () => this.command("warp", object.ref) });
     if (object.ref.type === "hive") {
       entries.push({ icon: "dock", label: "Dock", hotkey: "D", enabled: true, run: () => this.command("dock", object.ref) });
     }
+    const watched = this.env.lookTarget();
+    const looking = watched !== undefined && refKey(watched) === object.key;
+    entries.push(
+      looking
+        ? { icon: "lookAt", label: "Look at my bee", enabled: true, active: true, run: () => this.env.lookAt(undefined) }
+        : { icon: "lookAt", label: `Look at ${object.name}`, enabled: true, run: () => this.env.lookAt(object.ref) },
+    );
     if (object.lockable) {
       entries.push(
         locked

@@ -152,7 +152,7 @@ export class Game implements DebugHost {
 
   private get gameplay(): Gameplay {
     if (this.gameplayValue === undefined) {
-      throw new Error("Spielgeschehen noch nicht geladen");
+      throw new Error("Gameplay is not loaded yet.");
     }
     return this.gameplayValue;
   }
@@ -163,7 +163,7 @@ export class Game implements DebugHost {
     this.sky.attachClouds(await noise);
     const canvas = this.engine.getRenderingCanvas();
     if (canvas === null) {
-      throw new Error("Zeichenfläche fehlt");
+      throw new Error("Rendering canvas is missing.");
     }
     const gameplay = await Gameplay.createAsync({
       scene: this.scene,

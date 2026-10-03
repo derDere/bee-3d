@@ -99,7 +99,7 @@ export class CloudDensityField {
 
   public constructor(noise: CloudNoiseData) {
     if (!isPowerOfTwo(ShapeSize) || !isPowerOfTwo(DetailSize) || !isPowerOfTwo(WeatherSize)) {
-      throw new Error("Rauschvolumen brauchen Zweierpotenz-Kantenlängen.");
+      throw new Error("Noise volumes need power-of-two edge lengths.");
     }
     this.shape = noise.shape;
     this.detail = noise.detail;

@@ -33,9 +33,12 @@ generated 2.10.2 bindings; `NetClient` ran against a lab server [verified 2.10.2
 
 - `onConnect` delivers the long-lived token; the session saves it. The short-lived WebSocket
   token from `POST /v1/identity/websocket-token` never reaches the store [source].
-- A rejected token ("Failed to verify token", e.g. after the server's keys changed) is
-  cleared, `onTokenRejected` fires, and the next attempt connects without a token: guests get a
-  new identity and lose their progress (skill `spacetimedb-security`, `references/auth.md`).
+- The SDK reports every failed token exchange as "Failed to verify token" — including 502/503
+  while the server restarts. The session therefore asks `POST /v1/identity/websocket-token` itself
+  with the stored token: only 401/403 counts as rejected (e.g. after the server's keys changed).
+  Then the token is cleared, `onTokenRejected` fires, and the next attempt connects without a
+  token: guests get a new identity and lose their progress (skill `spacetimedb-security`,
+  `references/auth.md`). 5xx, 429 and network errors keep the token and simply retry.
 
 ## Session lifecycle
 

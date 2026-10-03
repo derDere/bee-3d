@@ -42,7 +42,7 @@ export class CompassBadge {
     const compass = holder.content.firstElementChild;
     const needle = compass?.querySelector(".compass-needle");
     if (!(compass instanceof SVGSVGElement) || needle === null || needle === undefined) {
-      throw new Error("Kompass ließ sich nicht anlegen.");
+      throw new Error("Compass could not be created.");
     }
     this.element.appendChild(compass);
     this.needle = new AttributeSlot(needle, "transform");

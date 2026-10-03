@@ -228,8 +228,8 @@ export class InputController implements FixedStepSystem {
       return;
     }
     this.keys.add(code);
-    if (code === "Space" && event.ctrlKey) {
-      event.preventDefault();
+    if (code === "Space") {
+      event.preventDefault(); // kein Seitenscrollen und kein Klick auf einen fokussierten Knopf
       this.actions.command("stop");
       return;
     }

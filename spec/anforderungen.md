@@ -30,6 +30,9 @@ nachgewiesen wird.
 | O02 | Eigenes Layout, das nicht an EVE erinnert; nur die Steuerung folgt EVE | U | HUD |
 | O03 | Knöpfe mit Symbolen statt Text (Tooltip und Tastenabzeichen) | U | HUD |
 | O04 | Alle Texte im Spiel auf Englisch; wo möglich Symbole statt Text | U | Spiel, HUD |
+| O05 | Kompakte Oberfläche; Größe im Menü einstellbar (UI scale) | U | Menü, 1280×720 und 1920×1080 |
+| O06 | Andocken: die Biene bleibt im Hangar sichtbar; die Funktionen des Stocks stehen in einer Seitenleiste, jede öffnet ein eigenes Fenster im Spiel | U | Andocken |
+| O07 | Rechtsklick-Kreis ohne Überlappung von Symbolen und Beschriftungen | U | Kontextmenü an Stock und Fliege |
 
 ## Welt
 
@@ -75,6 +78,7 @@ nachgewiesen wird.
 | F09 | Lebensbalken (HP) über Bienen | 2D | Szene |
 | F10 | Tod: die Biene wird zum Geist (durchscheinend, kann nicht kämpfen) und wird im Bienenstock wiederbelebt | U, 2D | Kampf verlieren |
 | F11 | Laser-Zustand: Augen glühen rot, Mund offen beim Feuern | 2D | Feuern |
+| F12 | Bienenhaftes Flugbild: die Biene schwirrt leicht um ihre Flugbahn, statt starr wie ein Raumschiff zu gleiten | U | Flug, Schweben |
 
 ## Steuerung (EVE-Online-Vorbild, `dev/eve-online-steuerung.md`)
 
@@ -82,7 +86,7 @@ nachgewiesen wird.
 |---|---|---|---|
 | C01 | Orbit-Kamera um die eigene Biene (linke Maustaste ziehen = drehen, Mausrad = Zoom); Kamera ändert die Flugrichtung nicht | U | Bedienung |
 | C02 | Doppelklick in den Raum: Biene dreht träge in diese Richtung und fliegt los | U | Bedienung |
-| C03 | Befehle mit Taste + Klick auf Objekt: Q hinfliegen, W umkreisen, E Abstand halten, A ausrichten, S Warp, D andocken, Strg+Leertaste anhalten | U | Bedienung |
+| C03 | Befehle mit Taste + Klick auf Objekt: Q hinfliegen, W umkreisen, E Abstand halten, A ausrichten, S Warp, D andocken, Leertaste anhalten | U | Bedienung |
 | C04 | Rechtsklick-Kontextmenü mit denselben Befehlen | U | Bedienung |
 | C05 | Overview: Objektliste mit Typ, Name, Entfernung, sortierbar, Klick wählt aus | U | HUD |
 | C06 | Q ohne Ziel öffnet die Q-Wählscheibe (Richtung/Entfernung, dann Höhe) | U | Bedienung |
@@ -92,6 +96,9 @@ nachgewiesen wird.
 | C10 | Touch: zwei virtuelle Sticks (links Richtung, rechts zielen und Laser feuern) | 2D | Touch-Emulation |
 | C11 | Ziele aufschalten (Strg+Klick), mehrere Ziele gleichzeitig | U (EVE-Waffen) | Kampf |
 | C12 | Modulleiste mit Tastenkürzeln F1–F8 | U (EVE-Module) | HUD |
+| C13 | Ansehen wie in EVE: Kamera auf andere Objekte richten – Fliegen, Bienen, Blumenfelder, Inseln, Stöcke, Nester – und zurück zur eigenen Biene | U | Bedienung |
+| C14 | Sanftes Losfliegen: Trägheit nach der EVE-Formel v = v_max · (1 − e^(−t/τ)) | U | Tempo über die Zeit messen |
+| C15 | Die Biene bleibt bei schnellem Flug und im Warp in der Kameramitte; Serverkorrekturen gleiten statt zu springen | U | Flug, Warp |
 
 ## Waffen und Kampf
 

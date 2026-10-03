@@ -78,12 +78,31 @@ function availabilityFor(subject: CommandSubject, selection: SelectionHud | unde
   };
 }
 
-/** Baut die Einträge Hinfliegen, Umkreisen, Abstand halten, Ausrichten, Warp, Andocken und Aufschalten bzw. Lösen. */
+/**
+ * Eintrag „Ansehen“ für jede Objektart (Ansehen-Eintrag): richtet die Kamera auf das Objekt; beim gerade
+ * angesehenen Objekt ist er eingeschaltet und richtet sie zurück auf die eigene Biene.
+ */
+export function buildLookAtEntry(ref: EntityRef, lookAt: EntityRef | undefined, actions: HudActions): ContextMenuEntry {
+  const looking = sameEntity(lookAt, ref);
+  return {
+    icon: "lookAt",
+    label: looking ? "Back to my bee" : "Look at",
+    enabled: true,
+    active: looking,
+    run: () => actions.lookAt(looking ? undefined : ref),
+  };
+}
+
+/**
+ * Baut die Einträge Hinfliegen, Umkreisen, Abstand halten, Ausrichten, Warp, Andocken, Aufschalten bzw. Lösen
+ * und Ansehen. `lookAt` ist das Objekt, auf das die Kamera gerade gerichtet ist.
+ */
 export function buildEntityCommands(
   subject: CommandSubject,
   selection: SelectionHud | undefined,
   distances: CommandDistances,
   actions: HudActions,
+  lookAt: EntityRef | undefined,
 ): ContextMenuEntry[] {
   const ref = subject.ref;
   const can = availabilityFor(subject, selection);
@@ -112,6 +131,7 @@ export function buildEntityCommands(
   } else {
     entries.push({ icon: "lock", label: "Lock target", hotkey: "Ctrl+Click", enabled: can.lock, run: () => actions.lock(ref) });
   }
+  entries.push(buildLookAtEntry(ref, lookAt, actions));
   return entries;
 }
 

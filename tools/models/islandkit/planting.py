@@ -2,9 +2,14 @@
 
 Große Teile zuerst, jedes weitere Teil hält Abstand zu den vorigen: Solitärbaum, Bäume in
 Hainen (auf der oberen Terrassenebene eigene Arten), Büsche an Hainrändern, Ufern und Stämmen,
-Felsbrocken an der Kante, in der Wiese und auf Hügeln, Blumenfelder als Sammelziele, Deko-Blumen,
-Gras, Kantengras, Kiesel, Seerosen. Fliegennester tragen tote Bäume, Madenhügel,
+Felsbrocken an der Kante, in der Wiese und auf Hügeln, Blumenfelder als Sammelziele, Dickicht
+(weitere Bäume eng zwischen den Hainbäumen, deren Kronen zu einem Dach zusammenwachsen),
+Deko-Blumen, Gras, Kantengras, Kiesel, Seerosen. Fliegennester tragen tote Bäume, Madenhügel,
 Pilze und verdorrtes Gras. Startwerte: Skill ``babylon-islands``, ``references/assembly.md``.
+
+Die Blumenfelder stehen im Inselkatalog. Das Dickicht wächst nach ihnen und weicht ihnen aus;
+Deko-Blumen, Gras, Kantengras und Kiesel richten sich nur nach den Gehölzen vor den Blumenfeldern
+— Gräser und Blumen dürfen zwischen den Wurzelanläufen der Dickichtbäume stehen.
 
 Grundlage ist das grobe Feld ``body.mesh_terrain``, auf dem das Netz liegt. Fußpunkte und
 Normalen entstehen aus dem Feld selbst (Newton-Schritte entlang der Hochachse, Gradient) — das
@@ -41,6 +46,7 @@ type FloatArray = npt.NDArray[np.float64]
 type IndexArray = npt.NDArray[np.int64]
 type BoolArray = npt.NDArray[np.bool_]
 type PartSource = Callable[[str], Path]
+type PartHeight = Callable[[str], float]
 
 _UP = np.array([0.0, 1.0, 0.0])
 _CANDIDATE_DENSITY = 24.0  # Kandidaten je m² Plateau, dicht genug für 0,28 m Mindestabstand
@@ -208,6 +214,11 @@ class PlantedGroup:
         """Grundrisslage (K, 2)."""
         return self.positions[:, [0, 2]]
 
+    def subset(self, mask: BoolArray) -> PlantedGroup:
+        """Liefert die ausgewählten Exemplare in unveränderter Reihenfolge."""
+        parts = tuple(part for part, kept in zip(self.parts, mask, strict=True) if kept)
+        return PlantedGroup(parts, self.positions[mask], self.rotations[mask], self.scales[mask], self.tile_size, self.node)
+
 
 @dataclass(frozen=True, slots=True)
 class FlowerPatch:
@@ -249,13 +260,19 @@ class PlantingResult:
 
 
 class IslandPlanter:
-    """Bepflanzt eine Insel nach den Platzierungsregeln (Inselgärtner); seedbar über den Steckbrief."""
+    """Bepflanzt eine Insel nach den Platzierungsregeln (Inselgärtner); seedbar über den Steckbrief.
 
-    def __init__(self, spec: IslandSpec, terrain: IslandTerrain, painter: IslandPainter, parts: PartSource) -> None:
+    ``part_height`` liefert die Höhe eines Teils (m); damit überragt das Dickicht die Hainbäume nicht.
+    """
+
+    def __init__(
+        self, spec: IslandSpec, terrain: IslandTerrain, painter: IslandPainter, parts: PartSource, part_height: PartHeight | None = None
+    ) -> None:
         self._spec = spec
         self._style: PlantingStyle = spec.planting
         self._terrain = terrain
         self._parts = parts
+        self._part_height = part_height
         self._probe = GroundProbe(terrain, painter)
         self._radius = spec.dimensions.radius
         self._tile = max(16.0, round(spec.diameter / 3.0))
@@ -287,6 +304,7 @@ class IslandPlanter:
             ("bushes", self._bushes),
             ("boulders", self._boulders),
             ("patches", self._flower_patches),
+            ("thicket", self._thicket),
             ("flowers", self._deco_flowers),
             ("grass", self._grass),
             ("edge_grass", self._edge_grass),
@@ -464,6 +482,52 @@ class IslandPlanter:
         keep = rng.random(len(disk)) < 1.0 - 0.8 * smoothstep(0.6, 1.0, distance)
         order = disk[keep][np.argsort(distance[keep] + 0.35 * rng.random(int(keep.sum())))]
         return poisson_select(self._ground.xz, np.full(self._ground.count, _PATCH_SPACING), order, limit=_PATCH_FLOWERS[1])
+
+    def _thicket(self, rng: np.random.Generator) -> PlantedGroup:
+        """Dickicht: weitere, etwas kleinere Bäume eng zwischen und neben den Hainbäumen (Poisson 3,4–4,4 m).
+
+        Die Stämme stehen 3,2–7 m vom nächsten Hainbaum, dichte Haine zuerst; die Kronen wachsen so
+        zu einem Dach zusammen und reichen bis nahe an die Kante. Blumenfelder bleiben frei, kein
+        Wipfel überragt den höchsten Hainbaum.
+        """
+        style = self._style
+        trunks = self._centers("solitary", "trees")
+        limit = round(style.thicket * self._groups["trees"].count)
+        if limit <= 0 or len(trunks) == 0:
+            return PlantedGroup.empty()
+        ground = self._ground
+        nearest = _nearest_distance(trunks, ground.xz)
+        allowed = (
+            (ground.terrain.radial < 1.0 - 1.8 / self._radius)
+            & (ground.water > 2.0)
+            & (ground.normals[:, 1] > 0.85)
+            & (ground.scarp < 0.15)
+            & (nearest > 3.2)
+            & (nearest < 7.0)
+            & (self._outlet_distance > 6.0)
+            & self._outside_patches(ground.xz, 1.5)
+            & self._free({"solitary": 4.5, "bushes": 1.2, "boulders": 1.8})
+        )
+        candidates = np.flatnonzero(allowed)
+        priority = self._grove[candidates] - 0.03 * nearest[candidates] + 0.15 * rng.random(len(candidates))
+        spacing = rng.uniform(3.4, 4.4, ground.count)
+        chosen = poisson_select(ground.xz, spacing, candidates[np.argsort(-priority)], limit=limit)
+        upper = ground.terrain.terrace[chosen] > 0.6
+        names = [
+            _weighted_choice(rng, style.upper_trees if (high and style.upper_trees) else style.trees) for high in upper
+        ]
+        group = _planted_group(rng, ground.points[chosen], names, _upright(rng, len(chosen), 4.0), (0.7, 0.95), sink=0.1)
+        return self._below_canopy(group)
+
+    def _below_canopy(self, group: PlantedGroup) -> PlantedGroup:
+        """Behält die Exemplare, deren Wipfel nicht höher reicht als der höchste Hainbaum oder Solitär."""
+        height = self._part_height
+        if height is None or group.count == 0:
+            return group
+        canopy = max(
+            float(_tops(planted, height).max(initial=-np.inf)) for planted in (self._groups["solitary"], self._groups["trees"])
+        )
+        return group.subset(_tops(group, height) <= canopy)
 
     def _deco_flowers(self, rng: np.random.Generator) -> PlantedGroup:
         """Deko-Blumen außerhalb der Felder: lockere Flecken einer Art je Zelle (~8 m), Abstand 0,35 m."""
@@ -814,6 +878,12 @@ def _planted_group(
     scales = rng.uniform(*scale_range, count)
     lowered = positions - np.array([0.0, sink, 0.0])
     return PlantedGroup(tuple(names), lowered, rotations, scales, tile_size)
+
+
+def _tops(group: PlantedGroup, height: PartHeight) -> FloatArray:
+    """Wipfelhöhe je Exemplar: Fußpunkt plus Skalierung mal Höhe des Teils."""
+    heights = np.array([height(part) for part in group.parts])
+    return group.positions[:, 1] + group.scales * heights if group.count else np.zeros(0)
 
 
 def _concatenate_groups(*groups: PlantedGroup) -> PlantedGroup:

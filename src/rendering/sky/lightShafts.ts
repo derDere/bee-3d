@@ -37,8 +37,10 @@ export interface LightShaftFrame {
   readonly length: number;
   /** Gewicht des weiten Hofs um die Quelle (Sonne breit, Mond schmal). */
   readonly haloWeight: number;
-  /** Winkelbreite der hellen Quelle (rad): Sonne breit, Mond eng um die Scheibe. */
+  /** Winkelbreite der hellen Quelle (rad), eng um die Scheibe. */
   readonly coreAngle: number;
+  /** Anteil des gleichmäßigen Scheins um die Quelle neben den Strahlen (Sonne kräftig, Mond schwach). */
+  readonly glowShare: number;
 }
 
 /** Teiler der Auflösung gegenüber dem Bild: Verdeckungsbild in Viertel-, Sammeln in halber Auflösung. */
@@ -46,16 +48,23 @@ const OcclusionDownscale = 4;
 const GatherDownscale = 2;
 /** Stichprobenzahl, für die das Abklingen je Schritt angegeben ist. */
 const ReferenceSamples = 64;
+/** Abklingen je Schritt bei kurzen (Mittag) und langen Strahlen (Morgen, Abend). */
+const ShortDecay = 0.95;
+const LongDecay = 0.985;
 /** Winkelbreite des weiten Hofs um Sonne bzw. Mond (rad). */
 const HaloAngle = (28 * Math.PI) / 180;
-/** Gewicht der leuchtenden Wolkenränder als Strahlenquelle. */
-const CloudRimWeight = 0.5;
 /** Kehrwert der quadrierten Hofbreite für den Gaußabfall im Shader. */
 const HaloFalloff = 1 / (HaloAngle * HaloAngle);
+/** Gewicht der Silberränder der Wolken als Strahlenquelle und Winkelbreite ihres Fensters um die Lichtquelle (rad). */
+const CloudRimWeight = 0.6;
+const RimWindowAngle = (10 * Math.PI) / 180;
 /** Helligkeit der Strahlen relativ zum Hauptlicht. */
-const Brightness = 0.55;
+const Brightness = 2.0;
+/** Strahlenkontrast beim Einmischen: Vergleichswinkel um die Lichtquelle (rad) und Verstärkung der Strahlen gegenüber ihren Nachbarn. */
+const ContrastAngle = (6 * Math.PI) / 180;
+const RayGain = 1.5;
 /** Luftstrecke vor Geometrie, ab der die Strahlen voll wirken (m). */
-const AirMeters = 120;
+const AirMeters = 200;
 /** Unterhalb dieser Stärke entfallen die Pässe. */
 const MinStrength = 0.003;
 
@@ -63,7 +72,8 @@ const MinStrength = 0.003;
  * Sonnen- und Mondstrahlen (Lichtstrahlen): Radialunschärfe mit Wolkenmaske nach Skill babylon-sky
  * (light-shafts.md). Verdeckungsbild (¼ Auflösung) und Sammeln (½ Auflösung) laufen nach den Wolken des Frames; ein
  * Kamera-Post-Process vor der DefaultRenderingPipeline mischt die Strahlen ins HDR-Bild, sodass Bloom und
- * Tonemapping sie erfassen.
+ * Tonemapping sie erfassen. Beim Einmischen hebt ein Winkelvergleich die einzelnen Strahlen gegenüber dem
+ * gleichmäßigen Schein hervor: deutliche Strahlen durch Wolkenlücken und an Inseln vorbei, ohne Schleier.
  *
  * Der Post-Process ist vom ersten Frame an und dauerhaft das erste Glied der Kamerakette: Er nimmt das
  * Szenenbild samt Tiefenpuffer auf und trägt dessen MSAA-Stufe, die Pipeline selbst arbeitet ohne MSAA. Sind die
@@ -117,7 +127,7 @@ export class LightShafts {
 
     ShaderStore.ShadersStore[`${ShaftCompositeShaderName}FragmentShader`] = ShaftCompositeFragmentShader;
     this.postProcess = new PostProcess("lightShafts", ShaftCompositeShaderName, {
-      uniforms: ["shaftColor"],
+      uniforms: ["shaftColor", "lightParams", "contrastParams", "shaftSize"],
       samplers: ["shaftSampler", "depthSampler"],
       size: 1,
       camera,
@@ -242,10 +252,10 @@ export class LightShafts {
     effect.setTexture("cloudSampler", this.cloudTexture() ?? this.clearSky);
     effect.setVector3("toLight", frame.toLight);
     effect.setFloat4("occlusionParams", spread / Math.max(1, depthSize.width), spread / Math.max(1, depthSize.height), 1 / (frame.coreAngle * frame.coreAngle), HaloFalloff);
-    // Wolkenränder zählen als Quelle im Verhältnis zur Helligkeit des Lichts (Silberränder ≈ Licht = volle Quelle)
+    // Wolkenränder zählen als Quelle im Verhältnis zur Helligkeit des Lichts (Silberränder heller als das Licht)
     const color = frame.lightColor;
     const lightLuminance = Math.max(1e-4, 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b);
-    effect.setFloat4("sourceParams", frame.haloWeight, CloudRimWeight, 1 / lightLuminance, 0);
+    effect.setFloat4("sourceParams", frame.haloWeight, CloudRimWeight, 1 / lightLuminance, 1 / (RimWindowAngle * RimWindowAngle));
   }
 
   private bindGather(effect: Effect): void {
@@ -257,7 +267,7 @@ export class LightShafts {
     bindSkyPassView(effect, this.engine, this.inverseViewProjection);
     effect.setTexture("occlusionSampler", occlusion);
     // Abklingen je Schritt so umgerechnet, dass 32 und 64 Stichproben gleich lange Strahlen ergeben
-    const decay = Math.pow(mix(0.94, 0.975, frame.length), ReferenceSamples / Math.max(1, this.quality.samples));
+    const decay = Math.pow(mix(ShortDecay, LongDecay, frame.length), ReferenceSamples / Math.max(1, this.quality.samples));
     effect.setFloat4("gatherParams", this.screenLight.u, this.screenLight.v, mix(0.85, 1.0, frame.length), decay);
   }
 
@@ -268,9 +278,15 @@ export class LightShafts {
     } else {
       this.shaftColor.set(0, 0, 0);
     }
-    effect.setTexture("shaftSampler", this.gatherTarget ?? this.clearSky);
+    const shafts = this.gatherTarget ?? this.clearSky;
+    const size = shafts.getSize();
+    const aspect = this.engine.getRenderWidth() / Math.max(1, this.engine.getRenderHeight());
+    effect.setTexture("shaftSampler", shafts);
     effect.setTexture("depthSampler", this.depthMap);
     effect.setFloat4("shaftColor", this.shaftColor.r, this.shaftColor.g, this.shaftColor.b, AirMeters);
+    effect.setFloat4("lightParams", this.screenLight.u, this.screenLight.v, aspect, 0);
+    effect.setFloat4("contrastParams", Math.cos(ContrastAngle), Math.sin(ContrastAngle), frame?.glowShare ?? 0, RayGain);
+    effect.setFloat2("shaftSize", Math.max(1, size.width), Math.max(1, size.height));
   }
 
   public dispose(): void {

@@ -1,5 +1,5 @@
-// Shader der Himmelskörper (GLSL): Sonnenscheibe mit Randverdunklung und Glanzstern, Mond mit Phase, Kratern und
-// weichem Hof, prozeduraler Sternenhimmel mit dunklem Nachtblau, Milchstraße und Funkeln.
+// Shader der Himmelskörper (GLSL): Sonnenscheibe mit Randverdunklung, leuchtendem Saum und Strahlenkranz, Mond mit
+// Phase, Kratern, Erdschein und hellem Hof, prozeduraler Sternenhimmel mit dunklem Nachtblau, Milchstraße und Funkeln.
 
 export const BillboardVertexShader = /* glsl */ `
 precision highp float;
@@ -17,20 +17,42 @@ export const SunFragmentShader = /* glsl */ `
 precision highp float;
 varying vec2 vUV;
 uniform vec3 sunColor;
-uniform float discRadius;
+uniform vec2 sunParams;   // Scheibenradius (Anteil der halben Fläche), Stärke des Strahlenkranzes
+
+const float TAU = 6.2831853;
+// Strahlenkranz: Zahl der Hauptstrahlen (dazwischen ebenso viele feine), Länge (Abfall in Scheibenradien), halbe
+// Breite (Scheibenradien) und Helligkeit relativ zur Scheibe.
+const float SPIKES = 12.0;
+const float SPIKE_LENGTH = 3.2;
+const float SPIKE_WIDTH = 0.08;
+const float CORONA_GAIN = 0.1;
+
+float hash1(float n) { return fract(sin(n * 127.1 + 3.7) * 43758.5453); }
+
+// Ein Strahlenkranz aus SPIKES Strahlen ab dem Winkel phase, je Strahl andere Länge; r in Scheibenradien.
+float spikeRing(float angle, float r, float phase, float lengthScale, float width) {
+  float sector = (angle - phase) / TAU * SPIKES;
+  float index = floor(sector + 0.5);
+  float across = (sector - index) * TAU / SPIKES * r;
+  float reach = SPIKE_LENGTH * lengthScale * mix(0.45, 1.0, hash1(mod(index, SPIKES) + phase * 13.0));
+  return exp(-across * across / (width * width)) * exp(-max(0.0, r - 1.0) / reach);
+}
+
 void main(void) {
   vec2 p = vUV * 2.0 - 1.0;
-  float r = length(p);
-  float edge = discRadius * 0.04;
-  float disc = 1.0 - smoothstep(discRadius - edge, discRadius, r);
-  float cosine = sqrt(max(0.0, 1.0 - min(1.0, (r * r) / (discRadius * discRadius))));
+  float r = length(p) / sunParams.x;
+  float disc = 1.0 - smoothstep(0.96, 1.0, r);
+  float cosine = sqrt(max(0.0, 1.0 - min(1.0, r * r)));
   float limb = 1.0 - 0.6 * (1.0 - cosine);
-  float glow = exp(-r * 5.0) * 0.05 + exp(-r * 16.0) * 0.18;
-  // Glanzstern: sechs schmale Strahlen, die mit dem Abstand verblassen
+  // Leuchtender Ball: heller Saum eng an der Scheibe, dazu ein weiter, weicher Schein
+  float outside = max(0.0, r - 1.0);
+  float glow = exp(-outside * 4.0) * 0.3 + exp(-outside * 0.8) * 0.04;
+  // Strahlenkranz: Hauptstrahlen und dazwischen kürzere, feinere Strahlen
   float angle = atan(p.y, p.x);
-  float spikes = pow(abs(cos(angle * 3.0)), 90.0) + 0.6 * pow(abs(cos(angle * 3.0 + 0.5236)), 140.0);
-  float star = spikes * exp(-r * 4.5) * 0.12;
-  gl_FragColor = vec4(sunColor * (disc * limb + glow + star), 1.0);
+  float spikes = spikeRing(angle, r, 0.0, 1.0, SPIKE_WIDTH) + 0.5 * spikeRing(angle, r, TAU / SPIKES * 0.5, 0.6, SPIKE_WIDTH * 0.7);
+  float corona = spikes * smoothstep(0.9, 1.4, r) * CORONA_GAIN * sunParams.y;
+  float fadeOut = 1.0 - smoothstep(0.6, 1.0, length(p));
+  gl_FragColor = vec4(sunColor * (disc * limb + (glow + corona) * fadeOut), 1.0);
 }
 `;
 
@@ -42,6 +64,9 @@ uniform float phase;
 uniform float sunSide;
 uniform vec2 haloParams;   // Größe der Fläche relativ zur Scheibe, Stärke des Hofs
 
+// Erdschein: die unbeleuchtete Seite bleibt als matte Scheibe sichtbar, so wirkt der Mond in jeder Phase rund und groß.
+const float EARTHSHINE = 0.1;
+
 float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float valueNoise(vec2 p) {
   vec2 i = floor(p);
@@ -50,7 +75,7 @@ float valueNoise(vec2 p) {
   return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), u.x), mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 float craters(vec2 p) {
-  float maria = smoothstep(0.35, 0.75, valueNoise(p * 2.3 + 4.0)) * 0.45;
+  float maria = smoothstep(0.35, 0.75, valueNoise(p * 2.3 + 4.0)) * 0.55;
   float detail = valueNoise(p * 9.0) * 0.18 + valueNoise(p * 23.0) * 0.08;
   return 1.0 - maria - detail * 0.6;
 }
@@ -65,12 +90,13 @@ void main(void) {
     vec3 light = normalize(vec3(sin(angle) * sunSide, 0.0, -cos(angle)));
     float lit = smoothstep(-0.06, 0.12, dot(normal, light));
     float albedo = craters(p * 1.1);
-    color = moonColor * albedo * (lit + 0.025) * mask;
+    color = moonColor * albedo * (lit + EARTHSHINE) * mask;
   }
-  // Weicher Hof aus Streulicht in Dunst und dünnen Wolken um die Scheibe
+  // Heller Hof aus Streulicht in Dunst und dünnen Wolken: ein leuchtender Ring eng an der Scheibe, darum ein weiter Schein
   float outside = max(0.0, r - 1.0);
-  float halo = exp(-outside * 7.0) * 0.6 + exp(-outside * 1.8) * 0.25;
-  color += moonColor * halo * haloParams.y * (1.0 - mask);
+  float halo = exp(-outside * 5.0) * 0.7 + exp(-outside * 1.2) * 0.3;
+  float fadeOut = 1.0 - smoothstep(0.7, 1.0, length(vUV * 2.0 - 1.0));
+  color += moonColor * halo * haloParams.y * (1.0 - mask) * fadeOut;
   gl_FragColor = vec4(color, 1.0);
 }
 `;

@@ -15,8 +15,10 @@ import { SelectionBubble } from "./selectionBubble";
 /** Maße in HUD-Einheiten; sie entsprechen `--petal` und der Blasenbreite in hud.css. */
 const PetalUnits = 2.7;
 const BubbleWidthUnits = 15;
-/** Kleinster Kranzradius, damit sieben Blätter nebeneinander Platz haben. */
+/** Kleinster Kranzradius bei wenigen Blättern. */
 const MinRadiusUnits = 3.5;
+/** Luft zwischen benachbarten Blättern samt Tastenabzeichen; mit mehr Blättern wächst der Kranz. */
+const PetalSpacingUnits = 0.45;
 /** Abstand zwischen dem Ring der Markierung und den Blättern. */
 const RingClearanceUnits = 0.45;
 /** Abstand zwischen den obersten Blättern und der Blase. */
@@ -47,6 +49,15 @@ type BubbleSide = "above" | "below";
 
 function clamp(value: number, min: number, max: number): number {
   return min > max ? (min + max) / 2 : value < min ? min : value > max ? max : value;
+}
+
+/** Kleinster Kranzradius (HUD-Einheiten), bei dem `petals` Blätter mit Luft nebeneinander auf dem Bogen liegen. */
+function minRingRadiusUnits(petals: number): number {
+  if (petals < 2) {
+    return MinRadiusUnits;
+  }
+  const step = (((360 - RingGapDegrees) / (petals - 1)) * Math.PI) / 180;
+  return Math.max(MinRadiusUnits, (PetalUnits + PetalSpacingUnits) / (2 * Math.sin(step / 2)));
 }
 
 /** Klammer des ausgewählten Objekts; fehlt sie, liegt das Objekt hinter der Kamera. */
@@ -133,8 +144,11 @@ export class WorldSelection {
     this.resizeObserver.observe(this.bubble.element);
   }
 
-  /** Jeden Frame: Lage aus der Klammer des ausgewählten Objekts (`isSelected`) und den Bedienfeldern. */
-  public update(selection: SelectionHud | undefined, brackets: readonly BracketHud[], shield: PanelShield, now: number): void {
+  /**
+   * Jeden Frame: Lage aus der Klammer des ausgewählten Objekts (`isSelected`) und den Bedienfeldern; `lookAt` ist das
+   * Objekt, auf das die Kamera gerade gerichtet ist.
+   */
+  public update(selection: SelectionHud | undefined, brackets: readonly BracketHud[], shield: PanelShield, now: number, lookAt: EntityRef | undefined): void {
     setVisible(this.element, selection !== undefined);
     if (selection === undefined) {
       this.ref = undefined;
@@ -157,7 +171,8 @@ export class WorldSelection {
     // Im Blick: im Bild und nicht unter einem Bedienfeld; sonst rückt die Gruppe wie in Randlage beiseite
     const inView = bracket !== undefined && bracket.onScreen && !shield.coversCircle(bracket.x, bracket.y, CoverRadiusUnits * unit);
     const markerRing = inView ? markerRingDiameter(bracket.size) : 0;
-    const radius = Math.round(Math.max(MinRadiusUnits * unit, markerRing / 2 + RingClearanceUnits * unit + petal / 2));
+    const minRadius = minRingRadiusUnits(this.ring.shownCount(selection)) * unit;
+    const radius = Math.round(Math.max(minRadius, markerRing / 2 + RingClearanceUnits * unit + petal / 2));
     const offset = Math.round(radius * GapCosine + petal / 2 + BubbleClearanceUnits * unit);
     const bubbleWidth = this.bubbleWidth > 0 ? this.bubbleWidth : BubbleWidthUnits * unit;
     const bubbleHeight = this.bubbleHeight > 0 ? this.bubbleHeight : BubbleHeightGuessUnits * unit;
@@ -214,7 +229,7 @@ export class WorldSelection {
       this.proxyHint.set(behind ? "Behind you – turn around" : "Out of view – the arrow shows the way");
     }
     this.element.classList.toggle("is-below", this.side === "below");
-    this.ring.update(selection, this.side === "below");
+    this.ring.update(selection, this.side === "below", lookAt);
     this.bubble.update(selection);
   }
 

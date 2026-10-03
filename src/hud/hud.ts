@@ -1,5 +1,6 @@
 // src/hud/hud.ts — HTML-Oberfläche des Spiels: setzt die Bausteine zusammen, verteilt das HudModel und
-// kümmert sich um Modus, Menü (Esc) und Tastaturfokus. Die Spieltasten verarbeitet das Spiel selbst.
+// kümmert sich um Modus, Menü (Esc), Größe der Oberfläche und Tastaturfokus. Die Spieltasten verarbeitet das
+// Spiel selbst.
 
 import "./hud.css";
 import { BeeBadge } from "./beeBadge";
@@ -13,6 +14,7 @@ import { HoneycombBar } from "./honeycombBar";
 import type { HudContext } from "./hudContext";
 import type { ContextMenuEntry, HudActions, HudModel, HudSettings } from "./hudTypes";
 import { KeyboardClaims } from "./keyboardClaims";
+import { LookAtBadge } from "./lookAtBadge";
 import { MarkerLayer } from "./markers";
 import { NearbySheet } from "./nearbySheet";
 import { NoteLog } from "./noteLog";
@@ -26,6 +28,7 @@ import { TargetBubbles } from "./targetBubbles";
 import { Tooltip } from "./tooltip";
 import { TopBar } from "./topBar";
 import { TouchSticks } from "./touchSticks";
+import { applyUiScale, normalizeUiScale } from "./uiScale";
 import { WorldSelection } from "./worldSelection";
 
 export type { TouchSticks } from "./touchSticks";
@@ -71,6 +74,7 @@ export class Hud {
   private readonly banner: RibbonBanner;
   private readonly notes: NoteLog;
   private readonly nearby: NearbySheet;
+  private readonly lookBadge: LookAtBadge;
   private readonly targets: TargetBubbles;
   private readonly honeycomb: HoneycombBar;
   private readonly flight: FlightControls;
@@ -89,8 +93,9 @@ export class Hud {
   private keepRangeDistance = DefaultCommandDistances.keepRange;
 
   /**
-   * Esc gehört der Oberfläche: schließt ein offenes Blütenkranz-Menü, sonst schaltet es das Menü um. Ein
-   * Esc, das das Spiel schon verbraucht hat (preventDefault, z. B. Wählscheibe schließen), bleibt unbeachtet.
+   * Esc gehört der Oberfläche und schließt das Oberste: Blütenkranz-Menü, dann das Menü, dann ein Fenster der
+   * Wabenhalle; ist nichts davon offen, öffnet es das Menü. Ein Esc, das das Spiel schon verbraucht hat
+   * (preventDefault, z. B. Wählscheibe schließen), bleibt unbeachtet.
    */
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.repeat) {
@@ -99,8 +104,12 @@ export class Hud {
     event.preventDefault();
     if (this.petalMenu.wasOpenAt(event.timeStamp)) {
       this.petalMenu.hide();
+    } else if (this.menuOpen) {
+      this.closeMenu();
+    } else if (this.mode === "docked" && this.station.isWindowOpen) {
+      this.station.closeWindow();
     } else {
-      this.toggleMenu();
+      this.openMenu();
     }
   };
 
@@ -143,10 +152,12 @@ export class Hud {
 
     this.touch = new TouchSticks(this.touchLayer, root);
 
-    // Im Flug: Auswahl am Objekt, Nearby-Karte links, Zielblasen und Wabenleiste unten, Kompass, Tastenhilfe
+    // Im Flug: Auswahl am Objekt, Nearby-Karte links, unten Ansehen-Hinweis, Zielblasen und Wabenleiste, Kompass,
+    // Tastenhilfe
     this.selection = new WorldSelection(this.worldLayer, context);
     this.nearby = new NearbySheet(this.flightLayer, context);
     const dock = createElement("div", "hud-dock", this.flightLayer);
+    this.lookBadge = new LookAtBadge(dock, actions);
     this.targets = new TargetBubbles(dock, context);
     this.honeycomb = new HoneycombBar(dock, actions);
     this.flight = new FlightControls(dock, actions);
@@ -165,6 +176,7 @@ export class Hud {
     this.menu = new SettingsMenu(this.menuLayer, settings, actions, {
       close: () => this.closeMenu(),
       applyDisplay: (quality, reduceFlashes) => this.applyDisplay(quality, reduceFlashes),
+      applyUiScale: (scale) => this.applyScale(scale),
     });
     this.petalMenu = new PetalMenu(root, overlayLayer);
     this.tooltip = new Tooltip(root, overlayLayer);
@@ -174,6 +186,7 @@ export class Hud {
       this.badge.element,
       this.topBar.element,
       this.nearby.element,
+      this.lookBadge.element,
       this.targets.element,
       this.honeycomb.element,
       this.flight.element,
@@ -187,6 +200,7 @@ export class Hud {
     this.shield.register(this.banner.element, () => this.banner.isShown);
 
     this.applyDisplay(settings.quality, settings.reduceFlashes);
+    this.applyScale(normalizeUiScale(settings.uiScale));
     setVisible(this.menuLayer, false);
     this.enterMode("start");
     window.addEventListener("keydown", this.onKeyDown);
@@ -219,8 +233,9 @@ export class Hud {
       this.notes.update(model.log);
       if (mode === "flight") {
         this.markers.update(model.brackets, this.shield);
-        this.selection.update(model.selection, model.brackets, this.shield, now);
+        this.selection.update(model.selection, model.brackets, this.shield, now, model.lookAt);
         this.nearby.update(model.overview);
+        this.lookBadge.update(model);
         this.targets.update(model.targets);
         this.honeycomb.update(model.modules);
         this.flight.update(model.player);
@@ -306,6 +321,7 @@ export class Hud {
     this.flight.dispose();
     this.honeycomb.dispose();
     this.targets.dispose();
+    this.lookBadge.dispose();
     this.nearby.dispose();
     this.selection.dispose();
     this.markers.dispose();
@@ -314,6 +330,7 @@ export class Hud {
       layer.remove();
     }
     this.root.classList.remove("hud", "mode-start", "mode-flight", "mode-docked", "hud--low", "hud--calm");
+    this.root.style.removeProperty("--ui-scale");
   }
 
   private layer(name: string): HTMLDivElement {
@@ -358,13 +375,22 @@ export class Hud {
 
   private openEntityMenu(subject: CommandSubject, title: string, x: number, y: number): void {
     const distances = { orbit: this.orbitDistance, keepRange: this.keepRangeDistance };
-    this.showContextMenu(x, y, buildEntityCommands(subject, this.model?.selection, distances, this.actions), title);
+    const entries = buildEntityCommands(subject, this.model?.selection, distances, this.actions, this.model?.lookAt);
+    this.showContextMenu(x, y, entries, title);
   }
 
   /** Reagiert selbst auf Qualität (schlichtere Schatten bei „Low“) und „Fewer flashes“ (ruhige Warnungen). */
   private applyDisplay(quality: QualityChoice, reduceFlashes: boolean): void {
     this.root.classList.toggle("hud--low", quality === "low");
     this.root.classList.toggle("hud--calm", reduceFlashes);
+  }
+
+  /** Größe der Oberfläche als Faktor auf `--u`; Bedienfelder werden danach neu vermessen. */
+  private applyScale(scale: number): void {
+    applyUiScale(this.root, scale);
+    this.petalMenu.hide();
+    this.tooltip.hide();
+    this.shield.invalidate();
   }
 
   /** Gibt den Fokus an die Fokusheimat, falls er in einer verschwindenden Ebene lag. */

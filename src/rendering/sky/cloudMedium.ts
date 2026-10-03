@@ -11,26 +11,26 @@ export const CloudMedium = {
   /** Kachel des Detailrauschens in Metern. */
   detailTileMeters: 24,
   /** Kachel der großräumigen Wolkenmassen in Metern: kilometergroße Haufen. */
-  massTileMeters: 5000,
+  massTileMeters: 4000,
   /** Extinktion je Dichteeinheit (1/m). */
   extinctionPerDensity: 0.05,
   /** Grunddichte des Mediums. */
   density: 1,
   /** Stauchung in y: > 1 macht Wolkenmassen breiter als hoch (massige Haufen), < 1 höher als breit (Türme). */
-  verticalSquash: 0.8,
+  verticalSquash: 1.1,
   /** Erosion der Massenränder durch das Detailrauschen. */
-  erosion: 0.55,
+  erosion: 0.5,
   /** Zusätzliche Bedeckung je `depthBiasMeters` Tiefe unter dem Mittelpunkt. */
   depthBias: 0.1,
   depthBiasMeters: 7000,
   /** Wolkenfelder: Bedeckung ± halbe Stärke nach Kanal R der Wetterkarte (dichte Felder, klare Zonen dazwischen). */
-  clusterStrength: 0.4,
+  clusterStrength: 0.3,
   /** Schichten der Haufenwolken: Abstand der flachen Basen in Metern, versetzt je Wolkenfeld. */
   layerSpacingMeters: 2800,
   /** Anstieg an der Basis (Anteil der Schicht): klein = flache, scharfe Unterkante. */
   layerBaseSoftness: 0.04,
   /** Ab diesem Anteil der Schicht verjüngen sich die Türme nach oben. */
-  layerTopTaperStart: 0.45,
+  layerTopTaperStart: 0.6,
   /** Bedeckungszuschlag über Regenzellen. */
   rainCellCoverage: 0.35,
   /** Dichtezuschlag in Regenzellen. */
@@ -53,7 +53,7 @@ export const CloudMedium = {
   renderDistance: 5600,
   /**
    * Wolkenmeer der Hülle unter dem Horizont: gedachte Ebene auf dieser Welthöhe (m), mindestens `seaMinDepthMeters`
-   * unter der Kamera; Höhe der Kuppen (m) für ihre Schattierung.
+   * unter der Kamera, darauf Kuppen bis `seaReliefMeters` hoch.
    */
   seaLevelMeters: -2600,
   seaMinDepthMeters: 1400,
@@ -61,15 +61,15 @@ export const CloudMedium = {
   /** Entfernung des Regenvorhangs, auf dem der Regenbogen liegt (m): nähere Wolken und Inseln verdecken ihn. */
   rainbowCurtainMeters: 1200,
   /** Übergangsbreite vom Rand zum Kern einer Wolkenmasse (Massenwert): klein = kompakte Massen. */
-  bodyRamp: 0.1,
+  bodyRamp: 0.18,
   /** Schwelle des Formrauschens im Massenkern: klein = das Formrauschen zerteilt die Massen weniger. */
-  shapeThreshold: 0.7,
+  shapeThreshold: 0.82,
   /** Dichte schwankt im Inneren mit dem Formrauschen zwischen diesem Anteil und voll (kein flacher Nebel). */
   shapeDensityFloor: 0.65,
   /** Zweite Oktave der Wolkenmassen: Frequenzfaktor, Versatz und Gewicht. */
   massOctaveScale: 2.13,
   massOctaveOffset: [0.31, 0.57, 0.11],
-  massOctaveWeight: 0.2,
+  massOctaveWeight: 0.3,
   /** Drift der Wetterkarte relativ zur Massendrift. */
   weatherDrift: 0.2,
   /** Drift des Detailrauschens relativ zur Formdrift. */

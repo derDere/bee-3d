@@ -20,7 +20,7 @@ function parseSvg(markup: string): SVGSVGElement {
   holder.innerHTML = markup;
   const svg = holder.content.firstElementChild;
   if (!(svg instanceof SVGSVGElement)) {
-    throw new Error("Füllanzeige ließ sich nicht anlegen.");
+    throw new Error("Gauge could not be created.");
   }
   return svg;
 }
@@ -71,7 +71,7 @@ class VesselGauge {
     );
     const level = this.element.querySelector(".gauge-level");
     if (level === null) {
-      throw new Error("Füllanzeige ohne Füllstand.");
+      throw new Error("Gauge has no fill element.");
     }
     this.level = new AttributeSlot(level, "transform");
   }

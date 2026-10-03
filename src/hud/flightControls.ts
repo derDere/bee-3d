@@ -110,7 +110,7 @@ export class FlightControls {
     this.commandPill = createElement("div", "command-pill", this.element);
     this.command = new TextSlot(this.commandPill);
     const row = createElement("div", "speed-row", this.element);
-    const stop = createIconButton("round-btn stop-btn", "stop", "Stop", row, undefined, "Ctrl + Space brakes to a full stop.");
+    const stop = createIconButton("round-btn stop-btn", "stop", "Stop", row, "Space", "Brakes to a full stop.");
     stop.tabIndex = -1;
     stop.addEventListener("click", () => actions.command("stop"));
     this.stem = new SpeedStem(row, actions);
