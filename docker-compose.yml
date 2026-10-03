@@ -1,0 +1,89 @@
+# docker-compose.yml -- Stack fuer bee-3d
+#
+# Ein Container je Komponente im gemeinsamen Netz "internal". Versionen und Topologie stehen
+# HIER (versioniert); aus der .env kommen nur Host- und Umgebungswerte. Hochfahren und Stoppen
+# nur ueber die Make-Befehle.
+#
+#   spacetimedb  Spielserver und Datenbank (Fremd-Image, nur Konfiguration eingehaengt)
+#   web          nginx mit dem gebauten Client und dem /stdb/-Proxy (Profil "web")
+#   cli          spacetime-CLI im Stand des Servers fuer Build, Publish und Generate, wenn auf
+#                dem Host keine CLI installiert ist (Profil "tools", nur per "docker compose run")
+
+name: ${COMPOSE_PROJECT_NAME:-bee-3d}
+
+services:
+
+  # === Fremd-Image: SpacetimeDB ============================================
+  # Version exakt pinnen und gleich halten mit CLI, npm-Paket spacetimedb und Client-Bindings.
+  spacetimedb:
+    image: clockworklabs/spacetime:v2.10.2
+    # Versionierte config.toml bei jedem Start ins Datenverzeichnis kopieren, dann den Server
+    # als PID 1 starten. --root-dir legt Daten (/stdb/data) und Signaturschluessel (/stdb/config)
+    # in das eine Volume.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p /stdb/data &&
+        cp /etc/spacetimedb/config.toml /stdb/data/config.toml &&
+        exec spacetime --root-dir=/stdb start --listen-addr=0.0.0.0:3000 --non-interactive
+    volumes:
+      - ./mounts/spacetimedb:/stdb                                   # Laufzeitdaten + Schluessel: sichern!
+      - ./docker/spacetimedb/config.toml:/etc/spacetimedb/config.toml:ro
+    ports:
+      # Nur Loopback: CLI, MCP und Vite-Dev-Client des Entwicklers; oeffentlich nur ueber den Proxy.
+      - "127.0.0.1:${SPACETIMEDB_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/v1/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    # Der Server faehrt nur bei SIGINT geordnet herunter; SIGTERM ignoriert er als PID 1.
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+    mem_limit: 2g
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # === Eigener Client: nginx mit dist/ =====================================
+  # Das Image packt nur den fertigen Build aus "make compile" ein (dist/), es kompiliert nicht.
+  web:
+    profiles: ["web"]
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-bee-3d}-web
+    environment:
+      TRUSTED_PROXY_CIDR: ${TRUSTED_PROXY_CIDR:-127.0.0.1/32}
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"
+    depends_on:
+      spacetimedb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # === Werkzeug: spacetime-CLI =============================================
+  # Gleiches Image wie der Server, damit CLI und Server immer dieselbe Version haben. Das Repo
+  # liegt unter /work; die Besitzer-Identitaet steht in mounts/spacetime-cli/cli.toml.
+  cli:
+    profiles: ["tools"]
+    image: clockworklabs/spacetime:v2.10.2
+    entrypoint: ["spacetime"]
+    working_dir: /work
+    volumes:
+      - .:/work
+    networks:
+      - internal
+
+networks:
+  # Internes Stack-Netz -- Komponenten erreichen sich ueber den Service-Namen.
+  internal:
+    driver: bridge

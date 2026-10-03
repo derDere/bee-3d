@@ -1,0 +1,64 @@
+# dev/seed/world.yaml -- Demodaten fuer "make seed" (Rangliste, Stockbilanzen, Start-Wetter).
+# Synthetische Demo-Imker ohne Login; sie fuellen Rangliste und Stockbilanzen, damit die
+# Bienenstock-Menues wie im laufenden Betrieb aussehen. Ein Eintrag je Zeile, zwei Ebenen.
+
+weather: "misty-morning"
+
+keepers:
+  - name: "Bumble Betty"
+    honey: 4820
+    kills: 212
+    pollen: 9100
+    home: 0
+  - name: "Sir Buzzalot"
+    honey: 3310
+    kills: 96
+    pollen: 7400
+    home: 1
+  - name: "Honey Badger"
+    honey: 2785
+    kills: 160
+    pollen: 4300
+    home: 4
+  - name: "Nectarina"
+    honey: 1990
+    kills: 31
+    pollen: 5200
+    home: 2
+  - name: "Waxwell"
+    honey: 1240
+    kills: 58
+    pollen: 2600
+    home: 6
+  - name: "Stingy Sue"
+    honey: 860
+    kills: 74
+    pollen: 1300
+    home: 3
+  - name: "Pollen Paul"
+    honey: 410
+    kills: 9
+    pollen: 1100
+    home: 0
+  - name: "Wingrid"
+    honey: 125
+    kills: 3
+    pollen: 260
+    home: 8
+
+hives:
+  - hive: 0
+    honey: 5200
+    visits: 340
+  - hive: 1
+    honey: 2100
+    visits: 120
+  - hive: 2
+    honey: 1650
+    visits: 98
+  - hive: 4
+    honey: 2400
+    visits: 130
+  - hive: 8
+    honey: 300
+    visits: 12

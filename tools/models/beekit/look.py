@@ -27,7 +27,7 @@ VARIANTS = ("Day", "Night", "Ghost", "Laser")
 class Swatch(StrEnum):
     """Farben als sRGB-Hex, überwiegend wörtlich aus bee.css (Farbfeld)."""
 
-    FUR = "#c7a200"  # .bee .body/.head: background-color
+    FUR = "#f2b800"  # sonniges Bienengelb; im Spiel-Tonemapping liest sich das wie das Gelb der 2D-Vorlage
     OUTLINE = "#5a470a"  # Rand der Körperkreise
     STRIPE = "#3a2e07"  # .bum:nth-child(odd)
     COLLAR = "#3d2302"  # .neck

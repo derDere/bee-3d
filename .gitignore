@@ -1,3 +1,9 @@
+# Abhängigkeiten und Build-Ausgaben
+node_modules/
+dist/
+server/dist/
+*.tsbuildinfo
+
 # Python-Werkzeuge (Modell-Pipeline)
 .venv/
 __pycache__/
@@ -7,4 +13,14 @@ __pycache__/
 .temp/
 
 # Laufzeitdaten der Container; mounts/spacetime-cli/ enthält das Besitzer-Token von SpacetimeDB
-mounts/
+/mounts/
+
+# Lokale Umgebung – env.example bleibt versioniert
+.env
+
+# Lokale Overrides (lokale Claude-Settings, spacetime.local.json)
+*.local.*
+spacetime.*.local.json
+
+# Protokolle
+*.log

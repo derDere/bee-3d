@@ -3,18 +3,19 @@
 Die Roh-glbs landen in ``.temp/models/``, die Auslieferungsdateien in ``public/assets/models/``
 (jeweils relativ zum Repo-Root); Unterordner bleiben erhalten (``flora/``, ``islands/``).
 Die Reihenfolge in ``GENERATORS`` zählt: Generatoren, die fertige Teile anderer Generatoren
-einbauen, stehen nach diesen. Der Python-Code gehört nicht zum Build-Artefakt des Spiels.
+einbauen, stehen nach diesen (Flora vor den Inseln). ``--only`` baut ausgewählte Generatoren.
+Der Python-Code gehört nicht zum Build-Artefakt des Spiels.
 """
 
 from __future__ import annotations
 
+import argparse
+import importlib
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Protocol
-
-import bee
+from typing import Protocol, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = REPO_ROOT / ".temp" / "models"
@@ -22,7 +23,7 @@ FINAL_DIR = REPO_ROOT / "public" / "assets" / "models"
 
 # Optimierung für Auslieferung: WebP-Texturen und Meshopt-Kompression; Szenengraph, Meshes und
 # Materialien bleiben unverändert, damit Knoten (Pivots, Animationen) und LODs erhalten bleiben.
-# Leere Ankerknoten (Strahlursprung, Lebensbalken) bleiben über --prune false erhalten.
+# Leere Ankerknoten (Strahlursprung, Lebensbalken, Andockpunkte) bleiben über --prune false erhalten.
 OPTIMIZE_OPTIONS = (
     "--texture-compress", "webp",
     "--compress", "meshopt",
@@ -36,6 +37,9 @@ OPTIMIZE_OPTIONS = (
 
 _CLEAN_MARKERS = ("No errors found.", "No warnings found.")
 
+# Modulnamen der Generatoren in Bau-Reihenfolge.
+GENERATORS: tuple[str, ...] = ("bee", "fly", "hive", "island_flora", "sky_islands")
+
 
 class ModelGenerator(Protocol):
     """Generator-Modul: schreibt Roh-glbs in ein Verzeichnis und liefert deren Pfade."""
@@ -43,7 +47,9 @@ class ModelGenerator(Protocol):
     def build(self, raw_dir: Path) -> list[Path]: ...
 
 
-GENERATORS: tuple[ModelGenerator, ...] = (bee,)
+def load_generator(name: str) -> ModelGenerator:
+    """Importiert ein Generator-Modul aus ``tools/models/``."""
+    return cast(ModelGenerator, importlib.import_module(name))
 
 
 def run_gltf_transform(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -81,17 +87,33 @@ def optimize(raw_path: Path, final_path: Path) -> None:
         raise RuntimeError(f"Optimierung von {raw_path.name} fehlgeschlagen:\n{result.stdout}{result.stderr}")
 
 
+def build_generator(name: str) -> None:
+    """Führt einen Generator aus, validiert und optimiert jede seiner Dateien."""
+    generator = load_generator(name)
+    for raw_path in generator.build(RAW_DIR):
+        validate(raw_path)
+        final_path = FINAL_DIR / raw_path.relative_to(RAW_DIR)
+        optimize(raw_path, final_path)
+        print(
+            f"{raw_path.relative_to(RAW_DIR).as_posix()}: roh {raw_path.stat().st_size / 1024:.1f} KiB -> "
+            f"final {final_path.stat().st_size / 1024:.1f} KiB",
+            flush=True,
+        )
+
+
 def main() -> int:
-    """Führt alle Generatoren aus und liefert den Exit-Code."""
-    for generator in GENERATORS:
-        for raw_path in generator.build(RAW_DIR):
-            validate(raw_path)
-            final_path = FINAL_DIR / raw_path.relative_to(RAW_DIR)
-            optimize(raw_path, final_path)
-            print(
-                f"{raw_path.name}: roh {raw_path.stat().st_size / 1024:.1f} KiB -> "
-                f"final {final_path.stat().st_size / 1024:.1f} KiB"
-            )
+    """Führt alle (oder die gewählten) Generatoren aus und liefert den Exit-Code."""
+    parser = argparse.ArgumentParser(description="Baut die Modelle des Spiels.")
+    parser.add_argument("--only", default="", help="Kommagetrennte Generatornamen, z. B. fly,hive.")
+    args = parser.parse_args()
+    selected = [name.strip() for name in args.only.split(",") if name.strip()] or list(GENERATORS)
+    unknown = sorted(set(selected) - set(GENERATORS))
+    if unknown:
+        print(f"Unbekannte Generatoren: {', '.join(unknown)}", file=sys.stderr)
+        return 2
+    for name in GENERATORS:
+        if name in selected:
+            build_generator(name)
     return 0
 
 

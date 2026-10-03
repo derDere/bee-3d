@@ -1,0 +1,15 @@
+{
+  "name": "bee-loadtest",
+  "private": true,
+  "type": "module",
+  "//": "Werkzeug, nicht Teil des Spiel-Builds. Nutzt spacetimedb und den Netzwerkcode aus dem Repo-Root (dort zuerst npm install).",
+  "scripts": {
+    "bots": "tsx src/bots.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  }
+}

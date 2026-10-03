@@ -1,0 +1,29 @@
+{
+  "name": "bee-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Bienen-Multiplayer im Himmel: Babylon.js-Client mit SpacetimeDB-Backend.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.json",
+    "build": "npm run typecheck && vite build",
+    "build:profile": "npm run typecheck && vite build --mode profile",
+    "preview": "vite preview",
+    "models": "uv run --project tools/models tools/models/build_all.py"
+  },
+  "dependencies": {
+    "@babylonjs/addons": "9.29.0",
+    "@babylonjs/core": "9.29.0",
+    "@babylonjs/loaders": "9.29.0",
+    "@babylonjs/materials": "9.29.0",
+    "spacetimedb": "2.10.2"
+  },
+  "devDependencies": {
+    "@babylonjs/inspector": "9.29.0",
+    "@gltf-transform/cli": "4.5.1",
+    "@webgpu/types": "0.1.74",
+    "typescript": "7.0.2",
+    "vite": "8.3.2"
+  }
+}
